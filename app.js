@@ -306,6 +306,7 @@ function openSheet(id){
   pendingPhoto = it ? it.photo : null;
   photoPreview.style.backgroundImage = pendingPhoto ? `url(${pendingPhoto})` : '';
   photoPreview.innerHTML = pendingPhoto ? '' : '&#128247;';
+  photoPreview.classList.toggle('has-photo', !!pendingPhoto);
   deleteBtn.style.display = it ? 'block' : 'none';
 
   renderLocationSelect();
@@ -341,6 +342,9 @@ document.getElementById('qtyPlus').addEventListener('click', ()=>{
 });
 
 document.getElementById('photoBtn').addEventListener('click', ()=> photoInput.click());
+photoPreview.addEventListener('click', ()=>{
+  if(pendingPhoto) openPhotoViewer(pendingPhoto);
+});
 photoInput.addEventListener('change', (e)=>{
   const file = e.target.files[0];
   if(!file) return;
@@ -358,6 +362,7 @@ photoInput.addEventListener('change', (e)=>{
       pendingPhoto = canvas.toDataURL('image/jpeg', 0.7);
       photoPreview.style.backgroundImage = `url(${pendingPhoto})`;
       photoPreview.innerHTML = '';
+      photoPreview.classList.add('has-photo');
     };
     img.src = ev.target.result;
   };
