@@ -230,7 +230,7 @@ function renderList(){
 
   list.innerHTML = filtered.map(it=>`
     <div class="card" data-id="${it.id}">
-      <div class="thumb" style="${it.photo ? `background-image:url(${it.photo})` : ''}">${it.photo ? '' : '&#128247;'}</div>
+      <div class="thumb ${it.photo ? 'has-photo' : ''}" style="${it.photo ? `background-image:url(${it.photo})` : ''}">${it.photo ? '' : '&#128247;'}</div>
       <div class="card-body" data-action="edit">
         <div class="card-name">${escapeHtml(it.name)}</div>
         <span class="card-loc">${escapeHtml(it.location)}</span>
@@ -257,8 +257,29 @@ function renderList(){
       e.stopPropagation();
       changeQty(id, -1);
     });
+    const thumb = card.querySelector('.thumb.has-photo');
+    if(thumb){
+      thumb.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const it = items.find(i=>i.id===id);
+        openPhotoViewer(it.photo);
+      });
+    }
   });
 }
+
+const photoViewerOverlay = document.getElementById('photoViewerOverlay');
+const photoViewerImg = document.getElementById('photoViewerImg');
+
+function openPhotoViewer(url){
+  photoViewerImg.src = url;
+  photoViewerOverlay.classList.add('open');
+}
+function closePhotoViewer(){
+  photoViewerOverlay.classList.remove('open');
+  photoViewerImg.src = '';
+}
+photoViewerOverlay.addEventListener('click', closePhotoViewer);
 
 async function changeQty(id, delta){
   const it = items.find(i=>i.id===id);
