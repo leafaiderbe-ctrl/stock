@@ -343,3 +343,36 @@ main{ padding:16px; }
 }
 .btn-primary{ background:var(--navy); color:var(--paper); }
 .btn-secondary{ background:transparent; color:var(--rust); border:1px solid var(--rust); }
+.btn-outline{ background:transparent; color:var(--navy); border:1px solid var(--navy); }
+
+.auth-screen{
+  min-height:100vh;
+  display:flex; align-items:center; justify-content:center;
+  padding:24px;
+}
+.auth-box{
+  width:100%; max-width:360px;
+  background:var(--paper-2);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:28px 24px;
+}
+.auth-box h1{ font-size:26px; color:var(--navy); text-align:center; }
+.auth-subtitle{
+  text-align:center;
+  font-size:13px;
+  color:var(--ink);
+  opacity:0.6;
+  margin:6px 0 24px;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+}
+.auth-error{
+  background:rgba(138,42,32,0.12);
+  color:var(--rust);
+  border:1px solid var(--rust);
+  border-radius:6px;
+  padding:9px 12px;
+  font-size:13px;
+  margin-bottom:14px;
+}

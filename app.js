@@ -4,87 +4,53 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-const DB_NAME = 'stockDB';
-const DB_VERSION = 2;
-let db;
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, createUserWithEmailAndPassword,
+  signInWithEmailAndPassword, signOut,
+} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+import {
+  initializeFirestore, persistentLocalCache, persistentSingleTabManager,
+  collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, arrayUnion,
+} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
-const SEED_ITEMS = [
-  {name:"Vis à bois 4x40", qty:120, location:"Atelier - Tiroir 2", category:"Outillage", photo:null},
-  {name:"Ampoules LED E27", qty:6, location:"Cave - Étagère A", category:"Électroménager", photo:null},
-  {name:"Filtre à café", qty:2, location:"Cuisine - Placard haut", category:"Électroménager", photo:null},
-];
-const SEED_LOCATIONS = ["Atelier - Tiroir 2", "Cave - Étagère A", "Cuisine - Placard haut", "Garage"];
-const SEED_CATEGORIES = ["Outillage", "Électroménager", "Mobilier", "Décoration"];
+const firebaseConfig = {
+  apiKey: "AIzaSyDkFBIJIdUYvi-Nf8Imp2h4imoMSHKxN_I",
+  authDomain: "inventaire-stock-498b5.firebaseapp.com",
+  projectId: "inventaire-stock-498b5",
+  storageBucket: "inventaire-stock-498b5.firebasestorage.app",
+  messagingSenderId: "318508977574",
+  appId: "1:318508977574:web:9f2c2fb4ab4c8e1709d367",
+};
 
-function openDB(){
-  return new Promise((resolve, reject)=>{
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e)=>{
-      const database = e.target.result;
-      if(!database.objectStoreNames.contains('items')){
-        database.createObjectStore('items', {keyPath:'id', autoIncrement:true});
-      }
-      if(!database.objectStoreNames.contains('locations')){
-        database.createObjectStore('locations', {keyPath:'name'});
-      }
-      if(!database.objectStoreNames.contains('categories')){
-        database.createObjectStore('categories', {keyPath:'name'});
-      }
-    };
-    req.onsuccess = (e)=> resolve(e.target.result);
-    req.onerror = (e)=> reject(e.target.error);
-  });
-}
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = initializeFirestore(firebaseApp, {
+  localCache: persistentLocalCache({tabManager: persistentSingleTabManager()}),
+});
 
-function idbRequest(request){
-  return new Promise((resolve, reject)=>{
-    request.onsuccess = ()=> resolve(request.result);
-    request.onerror = ()=> reject(request.error);
-  });
-}
-
-function store(name, mode='readonly'){
-  return db.transaction(name, mode).objectStore(name);
-}
-
-function dbGetAllItems(){ return idbRequest(store('items').getAll()); }
-function dbAddItem(item){ return idbRequest(store('items','readwrite').add(item)); }
-function dbPutItem(item){ return idbRequest(store('items','readwrite').put(item)); }
-function dbDeleteItem(id){ return idbRequest(store('items','readwrite').delete(id)); }
-
-function dbGetAllLocations(){ return idbRequest(store('locations').getAll()); }
-function dbPutLocation(name){ return idbRequest(store('locations','readwrite').put({name})); }
-function dbGetAllCategories(){ return idbRequest(store('categories').getAll()); }
-function dbPutCategory(name){ return idbRequest(store('categories','readwrite').put({name})); }
-function dbClearStore(name){ return idbRequest(store(name,'readwrite').clear()); }
-
-async function seedIfEmpty(){
-  const existingLocations = await dbGetAllLocations();
-  if(existingLocations.length === 0){
-    for(const loc of SEED_LOCATIONS) await dbPutLocation(loc);
-  }
-  const existingCategories = await dbGetAllCategories();
-  if(existingCategories.length === 0){
-    for(const cat of SEED_CATEGORIES) await dbPutCategory(cat);
-  }
-  const existingItems = await dbGetAllItems();
-  if(existingItems.length === 0){
-    for(const it of SEED_ITEMS){
-      await dbAddItem({...it, updatedAt: Date.now()});
-    }
-  }
-}
+const itemsCol = collection(db, 'items');
+const metaRef = doc(db, 'meta', 'config');
 
 let items = [];
 let locations = [];
 let categories = [];
+let unsubItems = null;
+let unsubMeta = null;
 
 let activeFilter = null;
 let activeCategories = new Set();
 let searchTerm = "";
 let editingId = null;
+let newItemRef = null;
 let pendingPhoto = null;
 let pendingQty = 1;
+
+const authScreen = document.getElementById('authScreen');
+const appRoot = document.getElementById('appRoot');
+const authEmail = document.getElementById('authEmail');
+const authPassword = document.getElementById('authPassword');
+const authError = document.getElementById('authError');
 
 const list = document.getElementById('list');
 const emptyState = document.getElementById('emptyState');
@@ -104,6 +70,95 @@ const dimensionsInput = document.getElementById('dimensionsInput');
 const conditionSelect = document.getElementById('conditionSelect');
 const notesInput = document.getElementById('notesInput');
 
+function showAuthError(message){
+  authError.textContent = message;
+  authError.style.display = 'block';
+}
+function clearAuthError(){
+  authError.style.display = 'none';
+  authError.textContent = '';
+}
+
+document.getElementById('authSignInBtn').addEventListener('click', async ()=>{
+  clearAuthError();
+  try {
+    await signInWithEmailAndPassword(auth, authEmail.value.trim(), authPassword.value);
+  } catch(e){
+    showAuthError(translateAuthError(e.code));
+  }
+});
+
+document.getElementById('authSignUpBtn').addEventListener('click', async ()=>{
+  clearAuthError();
+  try {
+    await createUserWithEmailAndPassword(auth, authEmail.value.trim(), authPassword.value);
+  } catch(e){
+    showAuthError(translateAuthError(e.code));
+  }
+});
+
+document.getElementById('signOutBtn').addEventListener('click', async ()=>{
+  await signOut(auth);
+});
+
+function translateAuthError(code){
+  const messages = {
+    'auth/invalid-email': "Adresse email invalide.",
+    'auth/user-not-found': "Aucun compte avec cet email.",
+    'auth/wrong-password': "Mot de passe incorrect.",
+    'auth/invalid-credential': "Email ou mot de passe incorrect.",
+    'auth/email-already-in-use': "Un compte existe déjà avec cet email.",
+    'auth/weak-password': "Le mot de passe doit faire au moins 6 caractères.",
+    'auth/missing-password': "Merci de saisir un mot de passe.",
+  };
+  return messages[code] || "Une erreur est survenue. Réessaie.";
+}
+
+onAuthStateChanged(auth, (user)=>{
+  if (user){
+    authScreen.style.display = 'none';
+    appRoot.style.display = 'block';
+    startListeners();
+  } else {
+    authScreen.style.display = 'flex';
+    appRoot.style.display = 'none';
+    stopListeners();
+  }
+});
+
+function startListeners(){
+  unsubItems = onSnapshot(itemsCol, (snapshot)=>{
+    items = snapshot.docs.map((d)=>({id: d.id, ...d.data()}));
+    renderChips();
+    renderCategoryChips();
+    renderList();
+  });
+  unsubMeta = onSnapshot(metaRef, (snap)=>{
+    const data = snap.data() || {};
+    locations = data.locations || [];
+    categories = data.categories || [];
+    renderChips();
+    renderCategoryChips();
+    renderList();
+    if(sheetOverlay.classList.contains('open')){
+      const keepLoc = locationSelect.value;
+      const keepCat = categorySelect.value;
+      renderLocationSelect();
+      renderCategorySelect();
+      locationSelect.value = keepLoc;
+      categorySelect.value = keepCat;
+    }
+  });
+}
+
+function stopListeners(){
+  if (unsubItems) unsubItems();
+  if (unsubMeta) unsubMeta();
+  items = [];
+  locations = [];
+  categories = [];
+}
+
 function renderChips(){
   let html = `<button class="chip ${activeFilter===null?'active':''}" data-loc="">Tous</button>`;
   locations.forEach(loc=>{
@@ -117,12 +172,6 @@ function renderChips(){
       renderList();
     });
   });
-}
-
-function renderLocationSelect(){
-  locationSelect.innerHTML = locations.map(loc=>
-    `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`
-  ).join('');
 }
 
 function renderCategoryChips(){
@@ -145,6 +194,12 @@ function renderCategoryChips(){
       renderList();
     });
   });
+}
+
+function renderLocationSelect(){
+  locationSelect.innerHTML = locations.map(loc=>
+    `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`
+  ).join('');
 }
 
 function renderCategorySelect(){
@@ -192,7 +247,7 @@ function renderList(){
   `).join('');
 
   list.querySelectorAll('.card').forEach(card=>{
-    const id = parseInt(card.dataset.id);
+    const id = card.dataset.id;
     card.querySelector('[data-action="edit"]').addEventListener('click', ()=>openSheet(id));
     card.querySelector('[data-action="inc"]').addEventListener('click', (e)=>{
       e.stopPropagation();
@@ -208,10 +263,8 @@ function renderList(){
 async function changeQty(id, delta){
   const it = items.find(i=>i.id===id);
   if(!it) return;
-  it.qty = Math.max(0, it.qty + delta);
-  it.updatedAt = Date.now();
-  renderList();
-  await dbPutItem(it);
+  const qty = Math.max(0, it.qty + delta);
+  await updateDoc(doc(itemsCol, id), {qty, updatedAt: Date.now()});
 }
 
 function escapeHtml(str){
@@ -222,6 +275,7 @@ function escapeHtml(str){
 
 function openSheet(id){
   editingId = id || null;
+  newItemRef = editingId ? null : doc(itemsCol);
   const it = id ? items.find(i=>i.id===id) : null;
 
   sheetTitle.textContent = it ? "Modifier l'article" : "Nouvel article";
@@ -249,6 +303,7 @@ function openSheet(id){
 function closeSheet(){
   sheetOverlay.classList.remove('open');
   editingId = null;
+  newItemRef = null;
 }
 
 document.getElementById('addBtn').addEventListener('click', ()=>openSheet(null));
@@ -292,13 +347,10 @@ document.getElementById('addLocBtn').addEventListener('click', async ()=>{
   const val = input.value.trim();
   if(!val) return;
   if(!locations.includes(val)){
-    locations.push(val);
-    await dbPutLocation(val);
+    await setDoc(metaRef, {locations: arrayUnion(val)}, {merge:true});
   }
-  renderLocationSelect();
   locationSelect.value = val;
   input.value = "";
-  renderChips();
 });
 
 document.getElementById('addCatBtn').addEventListener('click', async ()=>{
@@ -306,13 +358,10 @@ document.getElementById('addCatBtn').addEventListener('click', async ()=>{
   const val = input.value.trim();
   if(!val) return;
   if(!categories.includes(val)){
-    categories.push(val);
-    await dbPutCategory(val);
+    await setDoc(metaRef, {categories: arrayUnion(val)}, {merge:true});
   }
-  renderCategorySelect();
   categorySelect.value = val;
   input.value = "";
-  renderCategoryChips();
 });
 
 document.getElementById('saveBtn').addEventListener('click', async ()=>{
@@ -325,36 +374,23 @@ document.getElementById('saveBtn').addEventListener('click', async ()=>{
   const condition = conditionSelect.value;
   const notes = notesInput.value.trim();
 
+  const data = {
+    name, qty:pendingQty, location, category, photo:pendingPhoto,
+    dimensions, condition, notes, updatedAt: Date.now(),
+  };
+
   if(editingId){
-    const it = items.find(i=>i.id===editingId);
-    it.name = name;
-    it.qty = pendingQty;
-    it.location = location;
-    it.category = category;
-    it.photo = pendingPhoto;
-    it.dimensions = dimensions;
-    it.condition = condition;
-    it.notes = notes;
-    it.updatedAt = Date.now();
-    await dbPutItem(it);
+    await updateDoc(doc(itemsCol, editingId), data);
   } else {
-    const newItem = {name, qty:pendingQty, location, category, photo:pendingPhoto, dimensions, condition, notes, updatedAt: Date.now()};
-    newItem.id = await dbAddItem(newItem);
-    items.push(newItem);
+    await setDoc(newItemRef, data);
   }
   closeSheet();
-  renderChips();
-  renderCategoryChips();
-  renderList();
 });
 
 deleteBtn.addEventListener('click', async ()=>{
   if(!editingId) return;
-  await dbDeleteItem(editingId);
-  items = items.filter(i=>i.id !== editingId);
+  await deleteDoc(doc(itemsCol, editingId));
   closeSheet();
-  renderChips();
-  renderList();
 });
 
 document.getElementById('searchInput').addEventListener('input', (e)=>{
@@ -454,39 +490,15 @@ importInput.addEventListener('change', (e)=>{
       alert("Fichier invalide : structure d'inventaire inattendue.");
       return;
     }
-    if(!confirm(`Importer remplacera tous les articles, emplacements et catégories actuels par ceux du fichier (${data.items.length} article(s)). Continuer ?`)) return;
+    if(!confirm(`Importer ajoutera ${data.items.length} article(s) du fichier à l'inventaire partagé actuel. Continuer ?`)) return;
 
-    await dbClearStore('items');
-    await dbClearStore('locations');
-    await dbClearStore('categories');
-    for(const loc of data.locations) await dbPutLocation(loc);
-    for(const cat of (data.categories || [])) await dbPutCategory(cat);
+    for(const loc of data.locations) await setDoc(metaRef, {locations: arrayUnion(loc)}, {merge:true});
+    for(const cat of (data.categories || [])) await setDoc(metaRef, {categories: arrayUnion(cat)}, {merge:true});
     for(const it of data.items){
       const {id, ...rest} = it;
-      await dbAddItem(rest);
+      await setDoc(doc(itemsCol), rest);
     }
-
-    items = await dbGetAllItems();
-    locations = (await dbGetAllLocations()).map(l=>l.name);
-    categories = (await dbGetAllCategories()).map(c=>c.name);
-    activeCategories.clear();
-    renderChips();
-    renderCategoryChips();
-    renderList();
     importInput.value = "";
   };
   reader.readAsText(file);
 });
-
-async function init(){
-  db = await openDB();
-  await seedIfEmpty();
-  items = await dbGetAllItems();
-  locations = (await dbGetAllLocations()).map(l=>l.name);
-  categories = (await dbGetAllCategories()).map(c=>c.name);
-  renderChips();
-  renderCategoryChips();
-  renderList();
-}
-
-init();

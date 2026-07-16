@@ -24,6 +24,31 @@
 </head>
 <body>
 
+<div class="auth-screen" id="authScreen">
+  <div class="auth-box">
+    <h1>Stock</h1>
+    <p class="auth-subtitle">Inventaire partagé</p>
+
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="authEmail" placeholder="toi@exemple.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>Mot de passe</label>
+      <input type="password" id="authPassword" placeholder="••••••••" autocomplete="current-password">
+    </div>
+
+    <div class="auth-error" id="authError" style="display:none;"></div>
+
+    <div class="sheet-actions">
+      <button class="btn-outline" id="authSignUpBtn">Créer un compte</button>
+      <button class="btn-primary" id="authSignInBtn">Se connecter</button>
+    </div>
+  </div>
+</div>
+
+<div id="appRoot" style="display:none;">
+
 <header>
   <div class="top-row">
     <h1>Stock</h1>
@@ -32,6 +57,7 @@
       <button class="io-btn mono" id="exportBtn">JSON</button>
       <button class="io-btn mono" id="exportExcelBtn">Excel</button>
       <button class="io-btn mono" id="importBtn">Importer</button>
+      <button class="io-btn mono" id="signOutBtn">Déconnexion</button>
       <input type="file" id="importInput" accept="application/json,.json" style="display:none;">
     </div>
   </div>
@@ -133,7 +159,9 @@
   </div>
 </div>
 
+</div>
+
 <script src="vendor/exceljs.min.js"></script>
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
