@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Stock — Inventaire</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#223247">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stock">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icons/icon-120.png">
+<link rel="icon" href="icons/icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="top-row">
+    <h1>Stock</h1>
+    <div class="header-actions">
+      <span class="count mono" id="itemCount">0 article</span>
+      <button class="io-btn mono" id="exportBtn">Exporter</button>
+      <button class="io-btn mono" id="importBtn">Importer</button>
+      <input type="file" id="importInput" accept="application/json,.json" style="display:none;">
+    </div>
+  </div>
+  <div class="search-row">
+    <input type="text" id="searchInput" placeholder="Rechercher un article…">
+  </div>
+  <div class="chips" id="locationChips"></div>
+</header>
+
+<main>
+  <div id="emptyState" class="empty" style="display:none;">
+    <i>&#9678;</i>
+    Aucun article pour l'instant.<br>Ajoutez le premier avec le bouton ci-dessous.
+  </div>
+  <div id="list"></div>
+</main>
+
+<div class="fab-bar">
+  <button class="fab" id="addBtn">+ Ajouter un article</button>
+</div>
+
+<div class="sheet-overlay" id="sheetOverlay">
+  <div class="sheet">
+    <h2 id="sheetTitle">Nouvel article</h2>
+
+    <div class="field">
+      <label>Photo</label>
+      <div class="photo-picker">
+        <div class="photo-preview" id="photoPreview">&#128247;</div>
+        <input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none;">
+        <button class="photo-btn" id="photoBtn">Prendre / choisir une photo</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Nom du produit</label>
+      <input type="text" id="nameInput" placeholder="Ex. Vis à bois 4x40">
+    </div>
+
+    <div class="field">
+      <label>Quantité</label>
+      <div class="qty-field">
+        <div class="stepper">
+          <button id="qtyMinus">–</button>
+          <span class="qty mono" id="qtyDisplay">1</span>
+          <button id="qtyPlus">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Emplacement</label>
+      <select id="locationSelect"></select>
+      <div class="loc-add-row">
+        <input type="text" id="newLocInput" placeholder="Nouvel emplacement…">
+        <button id="addLocBtn">Ajouter</button>
+      </div>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn-secondary" id="deleteBtn" style="display:none;">Supprimer</button>
+      <button class="btn-primary" id="saveBtn">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
