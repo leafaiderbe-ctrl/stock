@@ -378,16 +378,19 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
   URL.revokeObjectURL(url);
 });
 
-async function exportExcel(includePhotos){
+async function exportExcel(){
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Inventaire');
 
   sheet.columns = [
     {header:'Photo', key:'photo', width:10},
-    {header:'Nom', key:'name', width:30},
+    {header:'Nom du produit', key:'name', width:28},
     {header:'Quantité', key:'qty', width:12},
-    {header:'Emplacement', key:'location', width:24},
-    {header:'Date de dernière modification', key:'updatedAt', width:26},
+    {header:'Emplacement', key:'location', width:22},
+    {header:'Catégorie', key:'category', width:18},
+    {header:'Dimensions', key:'dimensions', width:18},
+    {header:'État général', key:'condition', width:16},
+    {header:'Remarques', key:'notes', width:36},
   ];
   sheet.getRow(1).font = {bold:true};
 
@@ -397,18 +400,22 @@ async function exportExcel(includePhotos){
       name: it.name,
       qty: it.qty,
       location: it.location,
-      updatedAt: it.updatedAt ? new Date(it.updatedAt).toLocaleString('fr-FR') : '',
+      category: it.category || '',
+      dimensions: it.dimensions || '',
+      condition: it.condition || '',
+      notes: it.notes || '',
     });
     row.height = 48;
+    row.alignment = {wrapText: true, vertical: 'middle'};
 
-    if(includePhotos && it.photo){
+    if(it.photo){
       const match = /^data:image\/(\w+);base64,(.*)$/.exec(it.photo);
       if(match){
         const ext = match[1] === 'jpg' ? 'jpeg' : match[1];
         const imageId = workbook.addImage({base64: match[2], extension: ext});
         sheet.addImage(imageId, {
           tl: {col:0, row: row.number - 1},
-          ext: {width:60, height:60},
+          br: {col:1, row: row.number},
           editAs: 'oneCell',
         });
       }
@@ -426,12 +433,7 @@ async function exportExcel(includePhotos){
 }
 
 document.getElementById('exportExcelBtn').addEventListener('click', async ()=>{
-  const photoCount = items.filter(it=>it.photo).length;
-  let includePhotos = true;
-  if(photoCount > 0){
-    includePhotos = confirm(`Inclure les ${photoCount} photo(s) dans le fichier Excel ?\n\nOK = avec photos (fichier plus volumineux)\nAnnuler = sans photos (export rapide et léger)`);
-  }
-  await exportExcel(includePhotos);
+  await exportExcel();
 });
 
 const importInput = document.getElementById('importInput');
