@@ -5,15 +5,16 @@ if ('serviceWorker' in navigator) {
 }
 
 const DB_NAME = 'stockDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let db;
 
 const SEED_ITEMS = [
-  {name:"Vis à bois 4x40", qty:120, location:"Atelier - Tiroir 2", photo:null},
-  {name:"Ampoules LED E27", qty:6, location:"Cave - Étagère A", photo:null},
-  {name:"Filtre à café", qty:2, location:"Cuisine - Placard haut", photo:null},
+  {name:"Vis à bois 4x40", qty:120, location:"Atelier - Tiroir 2", category:"Outillage", photo:null},
+  {name:"Ampoules LED E27", qty:6, location:"Cave - Étagère A", category:"Électroménager", photo:null},
+  {name:"Filtre à café", qty:2, location:"Cuisine - Placard haut", category:"Électroménager", photo:null},
 ];
 const SEED_LOCATIONS = ["Atelier - Tiroir 2", "Cave - Étagère A", "Cuisine - Placard haut", "Garage"];
+const SEED_CATEGORIES = ["Outillage", "Électroménager", "Mobilier", "Décoration"];
 
 function openDB(){
   return new Promise((resolve, reject)=>{
@@ -25,6 +26,9 @@ function openDB(){
       }
       if(!database.objectStoreNames.contains('locations')){
         database.createObjectStore('locations', {keyPath:'name'});
+      }
+      if(!database.objectStoreNames.contains('categories')){
+        database.createObjectStore('categories', {keyPath:'name'});
       }
     };
     req.onsuccess = (e)=> resolve(e.target.result);
@@ -50,12 +54,18 @@ function dbDeleteItem(id){ return idbRequest(store('items','readwrite').delete(i
 
 function dbGetAllLocations(){ return idbRequest(store('locations').getAll()); }
 function dbPutLocation(name){ return idbRequest(store('locations','readwrite').put({name})); }
+function dbGetAllCategories(){ return idbRequest(store('categories').getAll()); }
+function dbPutCategory(name){ return idbRequest(store('categories','readwrite').put({name})); }
 function dbClearStore(name){ return idbRequest(store(name,'readwrite').clear()); }
 
 async function seedIfEmpty(){
   const existingLocations = await dbGetAllLocations();
   if(existingLocations.length === 0){
     for(const loc of SEED_LOCATIONS) await dbPutLocation(loc);
+  }
+  const existingCategories = await dbGetAllCategories();
+  if(existingCategories.length === 0){
+    for(const cat of SEED_CATEGORIES) await dbPutCategory(cat);
   }
   const existingItems = await dbGetAllItems();
   if(existingItems.length === 0){
@@ -67,8 +77,10 @@ async function seedIfEmpty(){
 
 let items = [];
 let locations = [];
+let categories = [];
 
 let activeFilter = null;
+let activeCategories = new Set();
 let searchTerm = "";
 let editingId = null;
 let pendingPhoto = null;
@@ -78,14 +90,19 @@ const list = document.getElementById('list');
 const emptyState = document.getElementById('emptyState');
 const itemCount = document.getElementById('itemCount');
 const locationChips = document.getElementById('locationChips');
+const categoryChips = document.getElementById('categoryChips');
 const sheetOverlay = document.getElementById('sheetOverlay');
 const sheetTitle = document.getElementById('sheetTitle');
 const nameInput = document.getElementById('nameInput');
 const qtyDisplay = document.getElementById('qtyDisplay');
 const locationSelect = document.getElementById('locationSelect');
+const categorySelect = document.getElementById('categorySelect');
 const photoInput = document.getElementById('photoInput');
 const photoPreview = document.getElementById('photoPreview');
 const deleteBtn = document.getElementById('deleteBtn');
+const dimensionsInput = document.getElementById('dimensionsInput');
+const conditionSelect = document.getElementById('conditionSelect');
+const notesInput = document.getElementById('notesInput');
 
 function renderChips(){
   let html = `<button class="chip ${activeFilter===null?'active':''}" data-loc="">Tous</button>`;
@@ -108,11 +125,40 @@ function renderLocationSelect(){
   ).join('');
 }
 
+function renderCategoryChips(){
+  let html = `<button class="chip ${activeCategories.size===0?'active':''}" data-cat="">Toutes</button>`;
+  categories.forEach(cat=>{
+    html += `<button class="chip ${activeCategories.has(cat)?'active':''}" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`;
+  });
+  categoryChips.innerHTML = html;
+  categoryChips.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const cat = chip.dataset.cat;
+      if(!cat){
+        activeCategories.clear();
+      } else if(activeCategories.has(cat)){
+        activeCategories.delete(cat);
+      } else {
+        activeCategories.add(cat);
+      }
+      renderCategoryChips();
+      renderList();
+    });
+  });
+}
+
+function renderCategorySelect(){
+  categorySelect.innerHTML = `<option value="">Sélectionner…</option>` + categories.map(cat=>
+    `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`
+  ).join('');
+}
+
 function renderList(){
   let filtered = items.filter(it=>{
     const matchLoc = !activeFilter || it.location === activeFilter;
+    const matchCategory = activeCategories.size === 0 || activeCategories.has(it.category);
     const matchSearch = !searchTerm || it.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchLoc && matchSearch;
+    return matchLoc && matchCategory && matchSearch;
   });
 
   itemCount.textContent = items.length + (items.length>1 ? " articles" : " article");
@@ -133,6 +179,7 @@ function renderList(){
       <div class="card-body" data-action="edit">
         <div class="card-name">${escapeHtml(it.name)}</div>
         <span class="card-loc">${escapeHtml(it.location)}</span>
+        ${it.category ? `<span class="card-category">${escapeHtml(it.category)}</span>` : ''}
       </div>
       <div class="card-actions">
         <div class="stepper">
@@ -188,6 +235,13 @@ function openSheet(id){
 
   renderLocationSelect();
   if(it) locationSelect.value = it.location;
+
+  renderCategorySelect();
+  categorySelect.value = it ? (it.category || "") : "";
+
+  dimensionsInput.value = it ? (it.dimensions || "") : "";
+  conditionSelect.value = it ? (it.condition || "") : "";
+  notesInput.value = it ? (it.notes || "") : "";
 
   sheetOverlay.classList.add('open');
 }
@@ -247,26 +301,50 @@ document.getElementById('addLocBtn').addEventListener('click', async ()=>{
   renderChips();
 });
 
+document.getElementById('addCatBtn').addEventListener('click', async ()=>{
+  const input = document.getElementById('newCatInput');
+  const val = input.value.trim();
+  if(!val) return;
+  if(!categories.includes(val)){
+    categories.push(val);
+    await dbPutCategory(val);
+  }
+  renderCategorySelect();
+  categorySelect.value = val;
+  input.value = "";
+  renderCategoryChips();
+});
+
 document.getElementById('saveBtn').addEventListener('click', async ()=>{
   const name = nameInput.value.trim();
   if(!name){ nameInput.focus(); return; }
+  const category = categorySelect.value;
+  if(!category){ categorySelect.focus(); return; }
   const location = locationSelect.value || locations[0] || "Sans emplacement";
+  const dimensions = dimensionsInput.value.trim();
+  const condition = conditionSelect.value;
+  const notes = notesInput.value.trim();
 
   if(editingId){
     const it = items.find(i=>i.id===editingId);
     it.name = name;
     it.qty = pendingQty;
     it.location = location;
+    it.category = category;
     it.photo = pendingPhoto;
+    it.dimensions = dimensions;
+    it.condition = condition;
+    it.notes = notes;
     it.updatedAt = Date.now();
     await dbPutItem(it);
   } else {
-    const newItem = {name, qty:pendingQty, location, photo:pendingPhoto, updatedAt: Date.now()};
+    const newItem = {name, qty:pendingQty, location, category, photo:pendingPhoto, dimensions, condition, notes, updatedAt: Date.now()};
     newItem.id = await dbAddItem(newItem);
     items.push(newItem);
   }
   closeSheet();
   renderChips();
+  renderCategoryChips();
   renderList();
 });
 
@@ -287,8 +365,9 @@ document.getElementById('searchInput').addEventListener('input', (e)=>{
 document.getElementById('exportBtn').addEventListener('click', ()=>{
   const data = {
     exportedAt: new Date().toISOString(),
-    items: items.map(({id, name, qty, location, photo, updatedAt})=>({id, name, qty, location, photo, updatedAt})),
+    items: items.map(({id, name, qty, location, category, photo, dimensions, condition, notes, updatedAt})=>({id, name, qty, location, category, photo, dimensions, condition, notes, updatedAt})),
     locations,
+    categories,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -297,6 +376,62 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
   a.download = `stock-inventaire-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
+});
+
+async function exportExcel(includePhotos){
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Inventaire');
+
+  sheet.columns = [
+    {header:'Photo', key:'photo', width:10},
+    {header:'Nom', key:'name', width:30},
+    {header:'Quantité', key:'qty', width:12},
+    {header:'Emplacement', key:'location', width:24},
+    {header:'Date de dernière modification', key:'updatedAt', width:26},
+  ];
+  sheet.getRow(1).font = {bold:true};
+
+  items.forEach((it)=>{
+    const row = sheet.addRow({
+      photo: '',
+      name: it.name,
+      qty: it.qty,
+      location: it.location,
+      updatedAt: it.updatedAt ? new Date(it.updatedAt).toLocaleString('fr-FR') : '',
+    });
+    row.height = 48;
+
+    if(includePhotos && it.photo){
+      const match = /^data:image\/(\w+);base64,(.*)$/.exec(it.photo);
+      if(match){
+        const ext = match[1] === 'jpg' ? 'jpeg' : match[1];
+        const imageId = workbook.addImage({base64: match[2], extension: ext});
+        sheet.addImage(imageId, {
+          tl: {col:0, row: row.number - 1},
+          ext: {width:60, height:60},
+          editAs: 'oneCell',
+        });
+      }
+    }
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `stock-inventaire-${new Date().toISOString().slice(0,10)}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('exportExcelBtn').addEventListener('click', async ()=>{
+  const photoCount = items.filter(it=>it.photo).length;
+  let includePhotos = true;
+  if(photoCount > 0){
+    includePhotos = confirm(`Inclure les ${photoCount} photo(s) dans le fichier Excel ?\n\nOK = avec photos (fichier plus volumineux)\nAnnuler = sans photos (export rapide et léger)`);
+  }
+  await exportExcel(includePhotos);
 });
 
 const importInput = document.getElementById('importInput');
@@ -317,11 +452,13 @@ importInput.addEventListener('change', (e)=>{
       alert("Fichier invalide : structure d'inventaire inattendue.");
       return;
     }
-    if(!confirm(`Importer remplacera tous les articles et emplacements actuels par ceux du fichier (${data.items.length} article(s)). Continuer ?`)) return;
+    if(!confirm(`Importer remplacera tous les articles, emplacements et catégories actuels par ceux du fichier (${data.items.length} article(s)). Continuer ?`)) return;
 
     await dbClearStore('items');
     await dbClearStore('locations');
+    await dbClearStore('categories');
     for(const loc of data.locations) await dbPutLocation(loc);
+    for(const cat of (data.categories || [])) await dbPutCategory(cat);
     for(const it of data.items){
       const {id, ...rest} = it;
       await dbAddItem(rest);
@@ -329,7 +466,10 @@ importInput.addEventListener('change', (e)=>{
 
     items = await dbGetAllItems();
     locations = (await dbGetAllLocations()).map(l=>l.name);
+    categories = (await dbGetAllCategories()).map(c=>c.name);
+    activeCategories.clear();
     renderChips();
+    renderCategoryChips();
     renderList();
     importInput.value = "";
   };
@@ -341,7 +481,9 @@ async function init(){
   await seedIfEmpty();
   items = await dbGetAllItems();
   locations = (await dbGetAllLocations()).map(l=>l.name);
+  categories = (await dbGetAllCategories()).map(c=>c.name);
   renderChips();
+  renderCategoryChips();
   renderList();
 }
 

@@ -1,9 +1,10 @@
-const CACHE_NAME = 'stock-cache-v1';
+const CACHE_NAME = 'stock-cache-v2';
 const APP_SHELL = [
   './',
   './index.html',
   './style.css',
   './app.js',
+  './vendor/exceljs.min.js',
   './manifest.json',
   './icons/icon-32.png',
   './icons/icon-76.png',

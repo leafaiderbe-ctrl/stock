@@ -6,7 +6,7 @@
 <title>Stock — Inventaire</title>
 
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#223247">
+<meta name="theme-color" content="#1E3B2A">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -19,7 +19,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -29,7 +29,8 @@
     <h1>Stock</h1>
     <div class="header-actions">
       <span class="count mono" id="itemCount">0 article</span>
-      <button class="io-btn mono" id="exportBtn">Exporter</button>
+      <button class="io-btn mono" id="exportBtn">JSON</button>
+      <button class="io-btn mono" id="exportExcelBtn">Excel</button>
       <button class="io-btn mono" id="importBtn">Importer</button>
       <input type="file" id="importInput" accept="application/json,.json" style="display:none;">
     </div>
@@ -38,6 +39,7 @@
     <input type="text" id="searchInput" placeholder="Rechercher un article…">
   </div>
   <div class="chips" id="locationChips"></div>
+  <div class="chips chips-category" id="categoryChips"></div>
 </header>
 
 <main>
@@ -90,6 +92,40 @@
       </div>
     </div>
 
+    <div class="field">
+      <label>Catégorie</label>
+      <select id="categorySelect">
+        <option value="">Sélectionner…</option>
+      </select>
+      <div class="loc-add-row">
+        <input type="text" id="newCatInput" placeholder="Nouvelle catégorie…">
+        <button id="addCatBtn">Ajouter</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Dimensions</label>
+      <input type="text" id="dimensionsInput" placeholder="Ex. 30 x 20 x 15 cm">
+    </div>
+
+    <div class="field">
+      <label>État général</label>
+      <select id="conditionSelect">
+        <option value="">—</option>
+        <option value="Neuf">Neuf</option>
+        <option value="Très bon état">Très bon état</option>
+        <option value="Bon état">Bon état</option>
+        <option value="Usé">Usé</option>
+        <option value="Endommagé">Endommagé</option>
+        <option value="Hors service">Hors service</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Remarques</label>
+      <textarea id="notesInput" rows="3" placeholder="Ex. à réparer, prêté à quelqu'un, acheté en 2022…"></textarea>
+    </div>
+
     <div class="sheet-actions">
       <button class="btn-secondary" id="deleteBtn" style="display:none;">Supprimer</button>
       <button class="btn-primary" id="saveBtn">Enregistrer</button>
@@ -97,6 +133,7 @@
   </div>
 </div>
 
+<script src="vendor/exceljs.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
