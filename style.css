@@ -273,6 +273,24 @@ main{ padding:16px; }
   overflow-y:auto;
   border-top:3px solid var(--mustard);
 }
+.sheet-header{
+  display:flex; align-items:center; gap:10px;
+  margin-bottom:14px;
+}
+.sheet-header h2{ margin-bottom:0; }
+.back-btn{
+  flex:none;
+  width:34px; height:34px;
+  border-radius:50%;
+  border:none;
+  background:transparent;
+  color:var(--navy);
+  font-size:20px;
+  line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  padding:0;
+}
+.back-btn:active{ background:var(--line); }
 .sheet h2{ font-size:19px; margin-bottom:14px; }
 .field{ margin-bottom:14px; }
 .field label{

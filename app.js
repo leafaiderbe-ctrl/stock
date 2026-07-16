@@ -329,6 +329,7 @@ function closeSheet(){
 
 document.getElementById('addBtn').addEventListener('click', ()=>openSheet(null));
 sheetOverlay.addEventListener('click', (e)=>{ if(e.target === sheetOverlay) closeSheet(); });
+document.getElementById('sheetBackBtn').addEventListener('click', closeSheet);
 
 document.getElementById('qtyMinus').addEventListener('click', ()=>{
   pendingQty = Math.max(0, pendingQty - 1);
