@@ -310,7 +310,37 @@ function closePhotoViewer(){
   photoViewerOverlay.classList.remove('open');
   photoViewerImg.src = '';
 }
-photoViewerOverlay.addEventListener('click', closePhotoViewer);
+
+let touchStartX = 0;
+let touchStartY = 0;
+let isSwiping = false;
+
+photoViewerOverlay.addEventListener('touchstart', (e)=>{
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  isSwiping = false;
+}, {passive:true});
+
+photoViewerOverlay.addEventListener('touchmove', (e)=>{
+  const dx = e.touches[0].clientX - touchStartX;
+  const dy = e.touches[0].clientY - touchStartY;
+  if(Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) isSwiping = true;
+}, {passive:true});
+
+photoViewerOverlay.addEventListener('touchend', (e)=>{
+  if(!isSwiping || viewerPhotos.length <= 1) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if(Math.abs(dx) > 40){
+    if(dx < 0) viewerIndex = (viewerIndex + 1) % viewerPhotos.length;
+    else viewerIndex = (viewerIndex - 1 + viewerPhotos.length) % viewerPhotos.length;
+    renderPhotoViewer();
+  }
+});
+
+photoViewerOverlay.addEventListener('click', ()=>{
+  if(isSwiping){ isSwiping = false; return; }
+  closePhotoViewer();
+});
 viewerPrevBtn.addEventListener('click', (e)=>{
   e.stopPropagation();
   viewerIndex = (viewerIndex - 1 + viewerPhotos.length) % viewerPhotos.length;
