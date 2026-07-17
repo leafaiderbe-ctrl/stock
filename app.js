@@ -11,7 +11,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentSingleTabManager,
-  collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, arrayUnion,
+  collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot,
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -30,16 +30,13 @@ const db = initializeFirestore(firebaseApp, {
 });
 
 const itemsCol = collection(db, 'items');
-const metaRef = doc(db, 'meta', 'config');
 
 const LOCATIONS = ["Container 1", "Container 2", "Container 3", "Hangar de l'huma", "CD93"];
-const SEED_CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Textile", "Matériel production", "outillage", "consommable", "sport", "structure"];
+const CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Textile", "Matériel production", "outillage", "consommable", "sport", "structure"];
 const MAX_PHOTOS = 5;
 
 let items = [];
-let categories = [];
 let unsubItems = null;
-let unsubMeta = null;
 
 let activeFilter = null;
 let activeCategories = new Set();
@@ -122,7 +119,7 @@ onAuthStateChanged(auth, (user)=>{
     authScreen.style.display = 'none';
     appRoot.style.display = 'block';
     renderLocationSelect();
-    setDoc(metaRef, {categories: arrayUnion(...SEED_CATEGORIES)}, {merge:true});
+    renderCategoryChips();
     startListeners();
   } else {
     authScreen.style.display = 'flex';
@@ -135,27 +132,13 @@ function startListeners(){
   unsubItems = onSnapshot(itemsCol, (snapshot)=>{
     items = snapshot.docs.map((d)=>({id: d.id, ...d.data()}));
     renderChips();
-    renderCategoryChips();
     renderList();
-  });
-  unsubMeta = onSnapshot(metaRef, (snap)=>{
-    const data = snap.data() || {};
-    categories = data.categories || [];
-    renderCategoryChips();
-    renderList();
-    if(sheetOverlay.classList.contains('open')){
-      const keepCat = categorySelect.value;
-      renderCategorySelect();
-      categorySelect.value = keepCat;
-    }
   });
 }
 
 function stopListeners(){
   if (unsubItems) unsubItems();
-  if (unsubMeta) unsubMeta();
   items = [];
-  categories = [];
 }
 
 function renderChips(){
@@ -175,7 +158,7 @@ function renderChips(){
 
 function renderCategoryChips(){
   let html = `<button class="chip ${activeCategories.size===0?'active':''}" data-cat="">Toutes</button>`;
-  categories.forEach(cat=>{
+  CATEGORIES.forEach(cat=>{
     html += `<button class="chip ${activeCategories.has(cat)?'active':''}" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`;
   });
   categoryChips.innerHTML = html;
@@ -202,7 +185,7 @@ function renderLocationSelect(){
 }
 
 function renderCategorySelect(){
-  categorySelect.innerHTML = `<option value="">Sélectionner…</option>` + categories.map(cat=>
+  categorySelect.innerHTML = `<option value="">Sélectionner…</option>` + CATEGORIES.map(cat=>
     `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`
   ).join('');
 }
@@ -418,17 +401,6 @@ photoInput.addEventListener('change', (e)=>{
   photoInput.value = "";
 });
 
-document.getElementById('addCatBtn').addEventListener('click', async ()=>{
-  const input = document.getElementById('newCatInput');
-  const val = input.value.trim();
-  if(!val) return;
-  if(!categories.includes(val)){
-    await setDoc(metaRef, {categories: arrayUnion(val)}, {merge:true});
-  }
-  categorySelect.value = val;
-  input.value = "";
-});
-
 document.getElementById('saveBtn').addEventListener('click', async ()=>{
   const name = nameInput.value.trim();
   if(!name){ nameInput.focus(); return; }
@@ -461,25 +433,6 @@ deleteBtn.addEventListener('click', async ()=>{
 document.getElementById('searchInput').addEventListener('input', (e)=>{
   searchTerm = e.target.value;
   renderList();
-});
-
-document.getElementById('exportBtn').addEventListener('click', ()=>{
-  const data = {
-    exportedAt: new Date().toISOString(),
-    items: items.map((it)=>({
-      id: it.id, name: it.name, qty: it.qty, location: it.location, category: it.category,
-      photos: getItemPhotos(it), dimensions: it.dimensions, condition: it.condition,
-      notes: it.notes, updatedAt: it.updatedAt,
-    })),
-    categories,
-  };
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `stock-inventaire-${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
 });
 
 async function exportExcel(){
@@ -539,35 +492,4 @@ async function exportExcel(){
 
 document.getElementById('exportExcelBtn').addEventListener('click', async ()=>{
   await exportExcel();
-});
-
-const importInput = document.getElementById('importInput');
-document.getElementById('importBtn').addEventListener('click', ()=> importInput.click());
-importInput.addEventListener('change', (e)=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = async (ev)=>{
-    let data;
-    try {
-      data = JSON.parse(ev.target.result);
-    } catch(err){
-      alert("Fichier invalide : le JSON n'a pas pu être lu.");
-      return;
-    }
-    if(!Array.isArray(data.items)){
-      alert("Fichier invalide : structure d'inventaire inattendue.");
-      return;
-    }
-    if(!confirm(`Importer ajoutera ${data.items.length} article(s) du fichier à l'inventaire partagé actuel. Continuer ?`)) return;
-
-    if(data.categories) await setDoc(metaRef, {categories: arrayUnion(...data.categories)}, {merge:true});
-    for(const it of data.items){
-      const {id, photo, photos, ...rest} = it;
-      rest.photos = photos && photos.length ? photos : (photo ? [photo] : []);
-      await setDoc(doc(itemsCol), rest);
-    }
-    importInput.value = "";
-  };
-  reader.readAsText(file);
 });

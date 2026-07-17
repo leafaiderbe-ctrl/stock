@@ -377,20 +377,6 @@ main{ padding:16px; }
 .qty-field .stepper button{ width:30px; height:30px; font-size:18px; }
 .qty-field .qty{ font-size:18px; min-width:34px; }
 
-.loc-add-row{
-  display:flex; gap:8px; margin-top:6px;
-}
-.loc-add-row input{ flex:1; }
-.loc-add-row button{
-  flex:none;
-  padding:0 14px;
-  border-radius:6px;
-  border:1px solid var(--sage);
-  background:var(--sage);
-  color:var(--navy-2);
-  font-weight:600;
-}
-
 .sheet-actions{
   display:flex; gap:10px; margin-top:18px;
 }
