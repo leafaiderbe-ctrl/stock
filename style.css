@@ -228,7 +228,14 @@ main{ padding:16px; }
   border-radius:3px;
 }
 .card-actions{
-  display:flex; align-items:center; gap:8px; flex:none;
+  display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex:none;
+}
+.card-unit{
+  font-size:10.5px;
+  text-transform:uppercase;
+  letter-spacing:0.03em;
+  color:var(--ink);
+  opacity:0.55;
 }
 .stepper{
   display:flex; align-items:center; gap:8px;
@@ -254,6 +261,23 @@ main{ padding:16px; }
   font-size:14px;
   min-width:20px;
   text-align:center;
+}
+.stepper .qty-input{
+  font-family:'Poppins', sans-serif;
+  font-weight:600;
+  font-size:14px;
+  width:34px;
+  text-align:center;
+  border:none;
+  background:transparent;
+  color:var(--ink);
+  padding:0;
+  -moz-appearance:textfield;
+}
+.stepper .qty-input::-webkit-outer-spin-button,
+.stepper .qty-input::-webkit-inner-spin-button{
+  -webkit-appearance:none;
+  margin:0;
 }
 .icon-btn{
   background:none; border:none; color:var(--ink); opacity:0.45;
@@ -371,11 +395,36 @@ main{ padding:16px; }
   padding:0;
 }
 .qty-field{
-  display:flex; align-items:center; gap:14px;
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
 }
 .qty-field .stepper{ padding:5px 6px; }
 .qty-field .stepper button{ width:30px; height:30px; font-size:18px; }
 .qty-field .qty{ font-size:18px; min-width:34px; }
+.qty-field .qty-input{ font-size:18px; width:44px; }
+.qty-field select.unit-select{
+  width:auto;
+  padding:9px 10px;
+  border-radius:6px;
+  border:1px solid var(--line);
+  background:#fff;
+  font-size:14px;
+  font-family:'Poppins', sans-serif;
+  color:var(--ink);
+}
+
+.add-row{
+  display:flex; gap:8px; margin-top:8px;
+}
+.add-row input{ flex:1; }
+.add-row button{
+  flex:none;
+  padding:0 14px;
+  border-radius:6px;
+  border:1px solid var(--sage);
+  background:var(--sage);
+  color:var(--navy-2);
+  font-weight:600;
+}
 
 .sheet-actions{
   display:flex; gap:10px; margin-top:18px;

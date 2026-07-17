@@ -11,7 +11,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentSingleTabManager,
-  collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot,
+  collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, arrayUnion,
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -30,13 +30,17 @@ const db = initializeFirestore(firebaseApp, {
 });
 
 const itemsCol = collection(db, 'items');
+const metaRef = doc(db, 'meta', 'config');
 
 const LOCATIONS = ["Container 1", "Container 2", "Container 3", "Hangar de l'huma", "CD93"];
 const CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Textile", "Matériel production", "outillage", "consommable", "sport", "structure"];
+const DEFAULT_UNITS = ["Unités", "ML", "M2"];
 const MAX_PHOTOS = 5;
 
 let items = [];
+let units = [];
 let unsubItems = null;
+let unsubMeta = null;
 
 let activeFilter = null;
 let activeCategories = new Set();
@@ -61,6 +65,7 @@ const sheetOverlay = document.getElementById('sheetOverlay');
 const sheetTitle = document.getElementById('sheetTitle');
 const nameInput = document.getElementById('nameInput');
 const qtyDisplay = document.getElementById('qtyDisplay');
+const unitSelect = document.getElementById('unitSelect');
 const locationSelect = document.getElementById('locationSelect');
 const categorySelect = document.getElementById('categorySelect');
 const photoInput = document.getElementById('photoInput');
@@ -134,11 +139,23 @@ function startListeners(){
     renderChips();
     renderList();
   });
+  unsubMeta = onSnapshot(metaRef, (snap)=>{
+    const data = snap.data() || {};
+    units = data.units && data.units.length ? data.units : DEFAULT_UNITS;
+    if(sheetOverlay.classList.contains('open')){
+      const keepUnit = unitSelect.value;
+      renderUnitSelect();
+      unitSelect.value = keepUnit;
+    }
+  });
+  setDoc(metaRef, {units: arrayUnion(...DEFAULT_UNITS)}, {merge:true});
 }
 
 function stopListeners(){
   if (unsubItems) unsubItems();
+  if (unsubMeta) unsubMeta();
   items = [];
+  units = [];
 }
 
 function renderChips(){
@@ -190,6 +207,12 @@ function renderCategorySelect(){
   ).join('');
 }
 
+function renderUnitSelect(){
+  unitSelect.innerHTML = units.map(u=>
+    `<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`
+  ).join('');
+}
+
 function renderList(){
   let filtered = items.filter(it=>{
     const matchLoc = !activeFilter || it.location === activeFilter;
@@ -221,9 +244,10 @@ function renderList(){
       <div class="card-actions">
         <div class="stepper">
           <button data-action="dec">–</button>
-          <span class="qty mono">${it.qty}</span>
+          <input type="number" inputmode="numeric" class="qty-input mono" data-action="qty" value="${it.qty}" min="0">
           <button data-action="inc">+</button>
         </div>
+        ${it.unit ? `<span class="card-unit mono">${escapeHtml(it.unit)}</span>` : ''}
       </div>
     </div>
   `).join('');
@@ -238,6 +262,11 @@ function renderList(){
     card.querySelector('[data-action="dec"]').addEventListener('click', (e)=>{
       e.stopPropagation();
       changeQty(id, -1);
+    });
+    const qtyField = card.querySelector('[data-action="qty"]');
+    qtyField.addEventListener('click', (e)=> e.stopPropagation());
+    qtyField.addEventListener('change', (e)=>{
+      setQty(id, e.target.value);
     });
     const thumb = card.querySelector('.thumb.has-photo');
     if(thumb){
@@ -300,6 +329,11 @@ async function changeQty(id, delta){
   await updateDoc(doc(itemsCol, id), {qty, updatedAt: Date.now()});
 }
 
+async function setQty(id, value){
+  const qty = Math.max(0, parseInt(value, 10) || 0);
+  await updateDoc(doc(itemsCol, id), {qty, updatedAt: Date.now()});
+}
+
 function escapeHtml(str){
   const div = document.createElement('div');
   div.textContent = str;
@@ -314,7 +348,7 @@ function openSheet(id){
   sheetTitle.textContent = it ? "Modifier l'article" : "Nouvel article";
   nameInput.value = it ? it.name : "";
   pendingQty = it ? it.qty : 1;
-  qtyDisplay.textContent = pendingQty;
+  qtyDisplay.value = pendingQty;
   pendingPhotos = it ? [...getItemPhotos(it)] : [];
   renderPhotoGrid();
   deleteBtn.style.display = it ? 'block' : 'none';
@@ -324,6 +358,9 @@ function openSheet(id){
 
   renderCategorySelect();
   categorySelect.value = it ? (it.category || "") : "";
+
+  renderUnitSelect();
+  unitSelect.value = it ? (it.unit || units[0]) : units[0];
 
   dimensionsInput.value = it ? (it.dimensions || "") : "";
   conditionSelect.value = it ? (it.condition || "") : "";
@@ -344,11 +381,17 @@ document.getElementById('sheetBackBtn').addEventListener('click', closeSheet);
 
 document.getElementById('qtyMinus').addEventListener('click', ()=>{
   pendingQty = Math.max(0, pendingQty - 1);
-  qtyDisplay.textContent = pendingQty;
+  qtyDisplay.value = pendingQty;
 });
 document.getElementById('qtyPlus').addEventListener('click', ()=>{
   pendingQty += 1;
-  qtyDisplay.textContent = pendingQty;
+  qtyDisplay.value = pendingQty;
+});
+qtyDisplay.addEventListener('input', ()=>{
+  pendingQty = Math.max(0, parseInt(qtyDisplay.value, 10) || 0);
+});
+qtyDisplay.addEventListener('blur', ()=>{
+  qtyDisplay.value = pendingQty;
 });
 
 function renderPhotoGrid(){
@@ -401,18 +444,30 @@ photoInput.addEventListener('change', (e)=>{
   photoInput.value = "";
 });
 
+document.getElementById('addUnitBtn').addEventListener('click', async ()=>{
+  const input = document.getElementById('newUnitInput');
+  const val = input.value.trim();
+  if(!val) return;
+  if(!units.includes(val)){
+    await setDoc(metaRef, {units: arrayUnion(val)}, {merge:true});
+  }
+  unitSelect.value = val;
+  input.value = "";
+});
+
 document.getElementById('saveBtn').addEventListener('click', async ()=>{
   const name = nameInput.value.trim();
   if(!name){ nameInput.focus(); return; }
   const category = categorySelect.value;
   if(!category){ categorySelect.focus(); return; }
   const location = locationSelect.value || LOCATIONS[0];
+  const unit = unitSelect.value || units[0];
   const dimensions = dimensionsInput.value.trim();
   const condition = conditionSelect.value;
   const notes = notesInput.value.trim();
 
   const data = {
-    name, qty:pendingQty, location, category, photos:pendingPhotos,
+    name, qty:pendingQty, location, category, unit, photos:pendingPhotos,
     dimensions, condition, notes, updatedAt: Date.now(),
   };
 

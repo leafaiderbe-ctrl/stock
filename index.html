@@ -100,9 +100,14 @@
       <div class="qty-field">
         <div class="stepper">
           <button id="qtyMinus">–</button>
-          <span class="qty mono" id="qtyDisplay">1</span>
+          <input type="number" inputmode="numeric" class="qty-input mono" id="qtyDisplay" value="1" min="0">
           <button id="qtyPlus">+</button>
         </div>
+        <select id="unitSelect" class="unit-select"></select>
+      </div>
+      <div class="add-row">
+        <input type="text" id="newUnitInput" placeholder="Nouvelle unité…">
+        <button id="addUnitBtn">Ajouter</button>
       </div>
     </div>
 
