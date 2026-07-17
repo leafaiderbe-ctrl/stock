@@ -88,12 +88,9 @@
     </div>
 
     <div class="field">
-      <label>Photo</label>
-      <div class="photo-picker">
-        <div class="photo-preview" id="photoPreview">&#128247;</div>
-        <input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none;">
-        <button class="photo-btn" id="photoBtn">Prendre / choisir une photo</button>
-      </div>
+      <label>Photos (5 max)</label>
+      <div class="photo-grid" id="photoGrid"></div>
+      <input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none;">
     </div>
 
     <div class="field">
@@ -115,10 +112,6 @@
     <div class="field">
       <label>Emplacement</label>
       <select id="locationSelect"></select>
-      <div class="loc-add-row">
-        <input type="text" id="newLocInput" placeholder="Nouvel emplacement…">
-        <button id="addLocBtn">Ajouter</button>
-      </div>
     </div>
 
     <div class="field">
@@ -141,11 +134,9 @@
       <label>État général</label>
       <select id="conditionSelect">
         <option value="">—</option>
-        <option value="Neuf">Neuf</option>
-        <option value="Très bon état">Très bon état</option>
         <option value="Bon état">Bon état</option>
-        <option value="Usé">Usé</option>
         <option value="Endommagé">Endommagé</option>
+        <option value="À réparer">À réparer</option>
         <option value="Hors service">Hors service</option>
       </select>
     </div>
@@ -163,7 +154,10 @@
 </div>
 
 <div class="photo-viewer-overlay" id="photoViewerOverlay">
+  <button class="viewer-nav viewer-prev" id="viewerPrevBtn" aria-label="Photo précédente">&#8249;</button>
   <img id="photoViewerImg" alt="Photo de l'article">
+  <button class="viewer-nav viewer-next" id="viewerNextBtn" aria-label="Photo suivante">&#8250;</button>
+  <div class="viewer-counter" id="viewerCounter"></div>
 </div>
 
 </div>

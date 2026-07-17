@@ -32,8 +32,11 @@ const db = initializeFirestore(firebaseApp, {
 const itemsCol = collection(db, 'items');
 const metaRef = doc(db, 'meta', 'config');
 
+const LOCATIONS = ["Container 1", "Container 2", "Container 3", "Hangar de l'huma", "CD93"];
+const SEED_CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Textile", "Matériel production", "outillage", "consommable", "sport", "structure"];
+const MAX_PHOTOS = 5;
+
 let items = [];
-let locations = [];
 let categories = [];
 let unsubItems = null;
 let unsubMeta = null;
@@ -43,7 +46,7 @@ let activeCategories = new Set();
 let searchTerm = "";
 let editingId = null;
 let newItemRef = null;
-let pendingPhoto = null;
+let pendingPhotos = [];
 let pendingQty = 1;
 
 const authScreen = document.getElementById('authScreen');
@@ -64,7 +67,7 @@ const qtyDisplay = document.getElementById('qtyDisplay');
 const locationSelect = document.getElementById('locationSelect');
 const categorySelect = document.getElementById('categorySelect');
 const photoInput = document.getElementById('photoInput');
-const photoPreview = document.getElementById('photoPreview');
+const photoGrid = document.getElementById('photoGrid');
 const deleteBtn = document.getElementById('deleteBtn');
 const dimensionsInput = document.getElementById('dimensionsInput');
 const conditionSelect = document.getElementById('conditionSelect');
@@ -118,6 +121,8 @@ onAuthStateChanged(auth, (user)=>{
   if (user){
     authScreen.style.display = 'none';
     appRoot.style.display = 'block';
+    renderLocationSelect();
+    setDoc(metaRef, {categories: arrayUnion(...SEED_CATEGORIES)}, {merge:true});
     startListeners();
   } else {
     authScreen.style.display = 'flex';
@@ -135,17 +140,12 @@ function startListeners(){
   });
   unsubMeta = onSnapshot(metaRef, (snap)=>{
     const data = snap.data() || {};
-    locations = data.locations || [];
     categories = data.categories || [];
-    renderChips();
     renderCategoryChips();
     renderList();
     if(sheetOverlay.classList.contains('open')){
-      const keepLoc = locationSelect.value;
       const keepCat = categorySelect.value;
-      renderLocationSelect();
       renderCategorySelect();
-      locationSelect.value = keepLoc;
       categorySelect.value = keepCat;
     }
   });
@@ -155,13 +155,12 @@ function stopListeners(){
   if (unsubItems) unsubItems();
   if (unsubMeta) unsubMeta();
   items = [];
-  locations = [];
   categories = [];
 }
 
 function renderChips(){
   let html = `<button class="chip ${activeFilter===null?'active':''}" data-loc="">Tous</button>`;
-  locations.forEach(loc=>{
+  LOCATIONS.forEach(loc=>{
     html += `<button class="chip ${activeFilter===loc?'active':''}" data-loc="${escapeHtml(loc)}">${escapeHtml(loc)}</button>`;
   });
   locationChips.innerHTML = html;
@@ -197,7 +196,7 @@ function renderCategoryChips(){
 }
 
 function renderLocationSelect(){
-  locationSelect.innerHTML = locations.map(loc=>
+  locationSelect.innerHTML = LOCATIONS.map(loc=>
     `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`
   ).join('');
 }
@@ -230,7 +229,7 @@ function renderList(){
 
   list.innerHTML = filtered.map(it=>`
     <div class="card" data-id="${it.id}">
-      <div class="thumb ${it.photo ? 'has-photo' : ''}" style="${it.photo ? `background-image:url(${it.photo})` : ''}">${it.photo ? '' : '&#128247;'}</div>
+      <div class="thumb ${getItemPhotos(it).length ? 'has-photo' : ''}" style="${getItemPhotos(it)[0] ? `background-image:url(${getItemPhotos(it)[0]})` : ''}">${getItemPhotos(it)[0] ? '' : '&#128247;'}</div>
       <div class="card-body" data-action="edit">
         <div class="card-name">${escapeHtml(it.name)}</div>
         <span class="card-loc">${escapeHtml(it.location)}</span>
@@ -262,24 +261,54 @@ function renderList(){
       thumb.addEventListener('click', (e)=>{
         e.stopPropagation();
         const it = items.find(i=>i.id===id);
-        openPhotoViewer(it.photo);
+        openPhotoViewer(getItemPhotos(it), 0);
       });
     }
   });
 }
 
+function getItemPhotos(it){
+  if(it.photos && it.photos.length) return it.photos;
+  if(it.photo) return [it.photo];
+  return [];
+}
+
 const photoViewerOverlay = document.getElementById('photoViewerOverlay');
 const photoViewerImg = document.getElementById('photoViewerImg');
+const viewerPrevBtn = document.getElementById('viewerPrevBtn');
+const viewerNextBtn = document.getElementById('viewerNextBtn');
+const viewerCounter = document.getElementById('viewerCounter');
+let viewerPhotos = [];
+let viewerIndex = 0;
 
-function openPhotoViewer(url){
-  photoViewerImg.src = url;
+function openPhotoViewer(photos, index){
+  viewerPhotos = photos;
+  viewerIndex = index;
+  renderPhotoViewer();
   photoViewerOverlay.classList.add('open');
+}
+function renderPhotoViewer(){
+  photoViewerImg.src = viewerPhotos[viewerIndex];
+  const multi = viewerPhotos.length > 1;
+  viewerPrevBtn.style.visibility = multi ? 'visible' : 'hidden';
+  viewerNextBtn.style.visibility = multi ? 'visible' : 'hidden';
+  viewerCounter.textContent = multi ? `${viewerIndex+1} / ${viewerPhotos.length}` : '';
 }
 function closePhotoViewer(){
   photoViewerOverlay.classList.remove('open');
   photoViewerImg.src = '';
 }
 photoViewerOverlay.addEventListener('click', closePhotoViewer);
+viewerPrevBtn.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  viewerIndex = (viewerIndex - 1 + viewerPhotos.length) % viewerPhotos.length;
+  renderPhotoViewer();
+});
+viewerNextBtn.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  viewerIndex = (viewerIndex + 1) % viewerPhotos.length;
+  renderPhotoViewer();
+});
 
 async function changeQty(id, delta){
   const it = items.find(i=>i.id===id);
@@ -303,10 +332,8 @@ function openSheet(id){
   nameInput.value = it ? it.name : "";
   pendingQty = it ? it.qty : 1;
   qtyDisplay.textContent = pendingQty;
-  pendingPhoto = it ? it.photo : null;
-  photoPreview.style.backgroundImage = pendingPhoto ? `url(${pendingPhoto})` : '';
-  photoPreview.innerHTML = pendingPhoto ? '' : '&#128247;';
-  photoPreview.classList.toggle('has-photo', !!pendingPhoto);
+  pendingPhotos = it ? [...getItemPhotos(it)] : [];
+  renderPhotoGrid();
   deleteBtn.style.display = it ? 'block' : 'none';
 
   renderLocationSelect();
@@ -341,10 +368,31 @@ document.getElementById('qtyPlus').addEventListener('click', ()=>{
   qtyDisplay.textContent = pendingQty;
 });
 
-document.getElementById('photoBtn').addEventListener('click', ()=> photoInput.click());
-photoPreview.addEventListener('click', ()=>{
-  if(pendingPhoto) openPhotoViewer(pendingPhoto);
-});
+function renderPhotoGrid(){
+  let html = pendingPhotos.map((photo, i)=>`
+    <div class="photo-tile" data-index="${i}" style="background-image:url(${photo})">
+      <button class="photo-remove" data-index="${i}" aria-label="Supprimer la photo">&times;</button>
+    </div>
+  `).join('');
+  if(pendingPhotos.length < MAX_PHOTOS){
+    html += `<div class="photo-tile photo-add" id="photoAddTile">&#128247;</div>`;
+  }
+  photoGrid.innerHTML = html;
+
+  photoGrid.querySelectorAll('.photo-tile[data-index]').forEach(tile=>{
+    tile.addEventListener('click', ()=> openPhotoViewer(pendingPhotos, parseInt(tile.dataset.index)));
+  });
+  photoGrid.querySelectorAll('.photo-remove').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      pendingPhotos.splice(parseInt(btn.dataset.index), 1);
+      renderPhotoGrid();
+    });
+  });
+  const addTile = document.getElementById('photoAddTile');
+  if(addTile) addTile.addEventListener('click', ()=> photoInput.click());
+}
+
 photoInput.addEventListener('change', (e)=>{
   const file = e.target.files[0];
   if(!file) return;
@@ -359,25 +407,15 @@ photoInput.addEventListener('change', (e)=>{
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      pendingPhoto = canvas.toDataURL('image/jpeg', 0.7);
-      photoPreview.style.backgroundImage = `url(${pendingPhoto})`;
-      photoPreview.innerHTML = '';
-      photoPreview.classList.add('has-photo');
+      if(pendingPhotos.length < MAX_PHOTOS){
+        pendingPhotos.push(canvas.toDataURL('image/jpeg', 0.7));
+        renderPhotoGrid();
+      }
     };
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
-});
-
-document.getElementById('addLocBtn').addEventListener('click', async ()=>{
-  const input = document.getElementById('newLocInput');
-  const val = input.value.trim();
-  if(!val) return;
-  if(!locations.includes(val)){
-    await setDoc(metaRef, {locations: arrayUnion(val)}, {merge:true});
-  }
-  locationSelect.value = val;
-  input.value = "";
+  photoInput.value = "";
 });
 
 document.getElementById('addCatBtn').addEventListener('click', async ()=>{
@@ -396,13 +434,13 @@ document.getElementById('saveBtn').addEventListener('click', async ()=>{
   if(!name){ nameInput.focus(); return; }
   const category = categorySelect.value;
   if(!category){ categorySelect.focus(); return; }
-  const location = locationSelect.value || locations[0] || "Sans emplacement";
+  const location = locationSelect.value || LOCATIONS[0];
   const dimensions = dimensionsInput.value.trim();
   const condition = conditionSelect.value;
   const notes = notesInput.value.trim();
 
   const data = {
-    name, qty:pendingQty, location, category, photo:pendingPhoto,
+    name, qty:pendingQty, location, category, photos:pendingPhotos,
     dimensions, condition, notes, updatedAt: Date.now(),
   };
 
@@ -428,8 +466,11 @@ document.getElementById('searchInput').addEventListener('input', (e)=>{
 document.getElementById('exportBtn').addEventListener('click', ()=>{
   const data = {
     exportedAt: new Date().toISOString(),
-    items: items.map(({id, name, qty, location, category, photo, dimensions, condition, notes, updatedAt})=>({id, name, qty, location, category, photo, dimensions, condition, notes, updatedAt})),
-    locations,
+    items: items.map((it)=>({
+      id: it.id, name: it.name, qty: it.qty, location: it.location, category: it.category,
+      photos: getItemPhotos(it), dimensions: it.dimensions, condition: it.condition,
+      notes: it.notes, updatedAt: it.updatedAt,
+    })),
     categories,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
@@ -471,8 +512,9 @@ async function exportExcel(){
     row.height = 48;
     row.alignment = {wrapText: true, vertical: 'middle'};
 
-    if(it.photo){
-      const match = /^data:image\/(\w+);base64,(.*)$/.exec(it.photo);
+    const photo = getItemPhotos(it)[0];
+    if(photo){
+      const match = /^data:image\/(\w+);base64,(.*)$/.exec(photo);
       if(match){
         const ext = match[1] === 'jpg' ? 'jpeg' : match[1];
         const imageId = workbook.addImage({base64: match[2], extension: ext});
@@ -513,16 +555,16 @@ importInput.addEventListener('change', (e)=>{
       alert("Fichier invalide : le JSON n'a pas pu être lu.");
       return;
     }
-    if(!Array.isArray(data.items) || !Array.isArray(data.locations)){
+    if(!Array.isArray(data.items)){
       alert("Fichier invalide : structure d'inventaire inattendue.");
       return;
     }
     if(!confirm(`Importer ajoutera ${data.items.length} article(s) du fichier à l'inventaire partagé actuel. Continuer ?`)) return;
 
-    for(const loc of data.locations) await setDoc(metaRef, {locations: arrayUnion(loc)}, {merge:true});
-    for(const cat of (data.categories || [])) await setDoc(metaRef, {categories: arrayUnion(cat)}, {merge:true});
+    if(data.categories) await setDoc(metaRef, {categories: arrayUnion(...data.categories)}, {merge:true});
     for(const it of data.items){
-      const {id, ...rest} = it;
+      const {id, photo, photos, ...rest} = it;
+      rest.photos = photos && photos.length ? photos : (photo ? [photo] : []);
       await setDoc(doc(itemsCol), rest);
     }
     importInput.value = "";
