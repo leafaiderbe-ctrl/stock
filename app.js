@@ -34,6 +34,7 @@ const metaRef = doc(db, 'meta', 'config');
 
 const LOCATIONS = ["Container 1", "Container 2", "Container 3", "Hangar de l'huma", "CD93"];
 const CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Textile", "Matériel production", "outillage", "consommable", "sport", "structure"];
+const CONDITIONS = ["Bon état", "Endommagé", "À réparer", "Hors service"];
 const DEFAULT_UNITS = ["Unités", "ML", "M2"];
 const MAX_PHOTOS = 5;
 
@@ -528,6 +529,7 @@ async function exportExcel(){
     {header:'Photo', key:'photo', width:10},
     {header:'Nom du produit', key:'name', width:28},
     {header:'Quantité', key:'qty', width:12},
+    {header:'Unité', key:'unit', width:12},
     {header:'Emplacement', key:'location', width:22},
     {header:'Catégorie', key:'category', width:18},
     {header:'Dimensions', key:'dimensions', width:18},
@@ -541,6 +543,7 @@ async function exportExcel(){
       photo: '',
       name: it.name,
       qty: it.qty,
+      unit: it.unit || '',
       location: it.location,
       category: it.category || '',
       dimensions: it.dimensions || '',
@@ -577,4 +580,110 @@ async function exportExcel(){
 
 document.getElementById('exportExcelBtn').addEventListener('click', async ()=>{
   await exportExcel();
+});
+
+function normalizeHeader(str){
+  return String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+}
+
+const COLUMN_ALIASES = {
+  name: ['nom du produit', 'nom', 'produit'],
+  qty: ['quantite', 'qty', 'quantité'],
+  unit: ['unite', 'unit'],
+  location: ['emplacement', 'location'],
+  category: ['categorie', 'category'],
+  dimensions: ['dimensions', 'dimension'],
+  condition: ['etat general', 'etat', 'condition'],
+  notes: ['remarques', 'remarque', 'notes'],
+};
+
+function findColumnMap(headerRow){
+  const map = {};
+  headerRow.eachCell((cell, colNumber)=>{
+    const normalized = normalizeHeader(cell.value);
+    for(const [field, aliases] of Object.entries(COLUMN_ALIASES)){
+      if(aliases.includes(normalized)) map[field] = colNumber;
+    }
+  });
+  return map;
+}
+
+function matchFixedValue(raw, allowedList){
+  const normalized = normalizeHeader(raw);
+  if(!normalized) return null;
+  return allowedList.find(v => normalizeHeader(v) === normalized) || null;
+}
+
+async function importExcel(file){
+  const buffer = await file.arrayBuffer();
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const sheet = workbook.worksheets[0];
+  if(!sheet){
+    alert("Fichier invalide : aucune feuille trouvée.");
+    return;
+  }
+
+  const colMap = findColumnMap(sheet.getRow(1));
+  if(!colMap.name || !colMap.qty || !colMap.location || !colMap.category){
+    alert("Colonnes manquantes ou non reconnues. Il faut au minimum : Nom du produit, Quantité, Emplacement, Catégorie.");
+    return;
+  }
+
+  const validItems = [];
+  const errors = [];
+  const newUnits = new Set();
+
+  for(let r = 2; r <= sheet.rowCount; r++){
+    const row = sheet.getRow(r);
+    if(row.cellCount === 0) continue;
+    const cell = (field)=> colMap[field] ? row.getCell(colMap[field]).value : null;
+
+    const name = String(cell('name') || '').trim();
+    if(!name) continue;
+
+    const location = matchFixedValue(cell('location'), LOCATIONS);
+    const category = matchFixedValue(cell('category'), CATEGORIES);
+    if(!location){ errors.push(`Ligne ${r} (${name}) : emplacement "${cell('location') || ''}" non reconnu.`); continue; }
+    if(!category){ errors.push(`Ligne ${r} (${name}) : catégorie "${cell('category') || ''}" non reconnue.`); continue; }
+
+    const qty = Math.max(0, parseInt(cell('qty'), 10) || 0);
+    const unit = String(cell('unit') || '').trim();
+    if(unit && !units.includes(unit)) newUnits.add(unit);
+    const condition = matchFixedValue(cell('condition'), CONDITIONS) || '';
+    const dimensions = String(cell('dimensions') || '').trim();
+    const notes = String(cell('notes') || '').trim();
+
+    validItems.push({
+      name, qty, unit, location, category, dimensions, condition, notes,
+      photos: [], updatedAt: Date.now(),
+    });
+  }
+
+  if(validItems.length === 0){
+    alert(`Aucun article valide trouvé.${errors.length ? '\n\n' + errors.join('\n') : ''}`);
+    return;
+  }
+
+  const summary = `Importer ${validItems.length} article(s) dans l'inventaire partagé ?` +
+    (errors.length ? `\n\n${errors.length} ligne(s) ignorée(s) :\n${errors.slice(0,10).join('\n')}${errors.length>10 ? '\n…' : ''}` : '');
+  if(!confirm(summary)) return;
+
+  if(newUnits.size) await setDoc(metaRef, {units: arrayUnion(...newUnits)}, {merge:true});
+  await Promise.all(validItems.map(it => setDoc(doc(itemsCol), it)));
+
+  alert(`${validItems.length} article(s) importé(s).${errors.length ? ` ${errors.length} ligne(s) ignorée(s).` : ''}`);
+}
+
+const importExcelInput = document.getElementById('importExcelInput');
+document.getElementById('importExcelBtn').addEventListener('click', ()=> importExcelInput.click());
+importExcelInput.addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  try {
+    await importExcel(file);
+  } catch(err){
+    alert("Erreur lors de la lecture du fichier : " + err.message);
+  }
+  importExcelInput.value = "";
 });
