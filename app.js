@@ -11,7 +11,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentSingleTabManager,
-  collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, arrayUnion,
+  collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, arrayUnion,
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -165,11 +165,14 @@ function startListeners(){
       locationSelect.value = keepLoc;
     }
   });
-  setDoc(metaRef, {
-    units: arrayUnion(...DEFAULT_UNITS),
-    categories: arrayUnion(...DEFAULT_CATEGORIES),
-    locations: arrayUnion(...DEFAULT_LOCATIONS),
-  }, {merge:true});
+  getDoc(metaRef).then(snap=>{
+    const data = snap.data() || {};
+    const seed = {};
+    if(!data.units || !data.units.length) seed.units = DEFAULT_UNITS;
+    if(!data.categories || !data.categories.length) seed.categories = DEFAULT_CATEGORIES;
+    if(!data.locations || !data.locations.length) seed.locations = DEFAULT_LOCATIONS;
+    if(Object.keys(seed).length) setDoc(metaRef, seed, {merge:true});
+  });
 }
 
 function stopListeners(){
