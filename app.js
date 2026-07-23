@@ -33,13 +33,14 @@ const itemsCol = collection(db, 'items');
 const metaRef = doc(db, 'meta', 'config');
 
 const LOCATIONS = ["Container 1", "Container 2", "Container 3", "Hangar de l'huma", "CD93"];
-const CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Textile", "Matériel production", "outillage", "consommable", "sport", "structure"];
+const DEFAULT_CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Textile", "Matériel production", "outillage", "consommable", "sport", "structure"];
 const CONDITIONS = ["Bon état", "Endommagé", "À réparer", "Hors service"];
 const DEFAULT_UNITS = ["Unités", "ML", "M2"];
 const MAX_PHOTOS = 5;
 
 let items = [];
 let units = [];
+let categories = [];
 let unsubItems = null;
 let unsubMeta = null;
 
@@ -125,7 +126,6 @@ onAuthStateChanged(auth, (user)=>{
     authScreen.style.display = 'none';
     appRoot.style.display = 'block';
     renderLocationSelect();
-    renderCategoryChips();
     startListeners();
   } else {
     authScreen.style.display = 'flex';
@@ -143,13 +143,19 @@ function startListeners(){
   unsubMeta = onSnapshot(metaRef, (snap)=>{
     const data = snap.data() || {};
     units = data.units && data.units.length ? data.units : DEFAULT_UNITS;
+    categories = data.categories && data.categories.length ? data.categories : DEFAULT_CATEGORIES;
+    renderCategoryChips();
+    renderList();
     if(sheetOverlay.classList.contains('open')){
       const keepUnit = unitSelect.value;
+      const keepCat = categorySelect.value;
       renderUnitSelect();
+      renderCategorySelect();
       unitSelect.value = keepUnit;
+      categorySelect.value = keepCat;
     }
   });
-  setDoc(metaRef, {units: arrayUnion(...DEFAULT_UNITS)}, {merge:true});
+  setDoc(metaRef, {units: arrayUnion(...DEFAULT_UNITS), categories: arrayUnion(...DEFAULT_CATEGORIES)}, {merge:true});
 }
 
 function stopListeners(){
@@ -157,6 +163,7 @@ function stopListeners(){
   if (unsubMeta) unsubMeta();
   items = [];
   units = [];
+  categories = [];
 }
 
 function renderChips(){
@@ -176,7 +183,7 @@ function renderChips(){
 
 function renderCategoryChips(){
   let html = `<button class="chip ${activeCategories.size===0?'active':''}" data-cat="">Toutes</button>`;
-  CATEGORIES.forEach(cat=>{
+  categories.forEach(cat=>{
     html += `<button class="chip ${activeCategories.has(cat)?'active':''}" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`;
   });
   categoryChips.innerHTML = html;
@@ -203,7 +210,7 @@ function renderLocationSelect(){
 }
 
 function renderCategorySelect(){
-  categorySelect.innerHTML = `<option value="">Sélectionner…</option>` + CATEGORIES.map(cat=>
+  categorySelect.innerHTML = `<option value="">Sélectionner…</option>` + categories.map(cat=>
     `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`
   ).join('');
 }
@@ -614,6 +621,14 @@ function matchFixedValue(raw, allowedList){
   return allowedList.find(v => normalizeHeader(v) === normalized) || null;
 }
 
+function matchLocation(raw){
+  const normalized = normalizeHeader(raw);
+  if(!normalized) return null;
+  const exact = LOCATIONS.find(v => normalizeHeader(v) === normalized);
+  if(exact) return exact;
+  return LOCATIONS.find(v => normalized.startsWith(normalizeHeader(v))) || null;
+}
+
 async function importExcel(file){
   const buffer = await file.arrayBuffer();
   const workbook = new ExcelJS.Workbook();
@@ -633,6 +648,7 @@ async function importExcel(file){
   const validItems = [];
   const errors = [];
   const newUnits = new Set();
+  const newCategories = new Set();
 
   for(let r = 2; r <= sheet.rowCount; r++){
     const row = sheet.getRow(r);
@@ -642,10 +658,13 @@ async function importExcel(file){
     const name = String(cell('name') || '').trim();
     if(!name) continue;
 
-    const location = matchFixedValue(cell('location'), LOCATIONS);
-    const category = matchFixedValue(cell('category'), CATEGORIES);
+    const location = matchLocation(cell('location'));
     if(!location){ errors.push(`Ligne ${r} (${name}) : emplacement "${cell('location') || ''}" non reconnu.`); continue; }
-    if(!category){ errors.push(`Ligne ${r} (${name}) : catégorie "${cell('category') || ''}" non reconnue.`); continue; }
+
+    const rawCategory = String(cell('category') || '').trim();
+    if(!rawCategory){ errors.push(`Ligne ${r} (${name}) : catégorie manquante.`); continue; }
+    const category = matchFixedValue(rawCategory, categories) || rawCategory;
+    if(!categories.includes(category)) newCategories.add(category);
 
     const qty = Math.max(0, parseInt(cell('qty'), 10) || 0);
     const unit = String(cell('unit') || '').trim();
@@ -666,10 +685,16 @@ async function importExcel(file){
   }
 
   const summary = `Importer ${validItems.length} article(s) dans l'inventaire partagé ?` +
+    (newCategories.size ? `\n\nNouvelle(s) catégorie(s) qui seront créées : ${[...newCategories].join(', ')}` : '') +
     (errors.length ? `\n\n${errors.length} ligne(s) ignorée(s) :\n${errors.slice(0,10).join('\n')}${errors.length>10 ? '\n…' : ''}` : '');
   if(!confirm(summary)) return;
 
-  if(newUnits.size) await setDoc(metaRef, {units: arrayUnion(...newUnits)}, {merge:true});
+  if(newUnits.size || newCategories.size){
+    const metaUpdate = {};
+    if(newUnits.size) metaUpdate.units = arrayUnion(...newUnits);
+    if(newCategories.size) metaUpdate.categories = arrayUnion(...newCategories);
+    await setDoc(metaRef, metaUpdate, {merge:true});
+  }
   await Promise.all(validItems.map(it => setDoc(doc(itemsCol), it)));
 
   alert(`${validItems.length} article(s) importé(s).${errors.length ? ` ${errors.length} ligne(s) ignorée(s).` : ''}`);
