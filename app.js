@@ -621,6 +621,14 @@ function matchFixedValue(raw, allowedList){
   return allowedList.find(v => normalizeHeader(v) === normalized) || null;
 }
 
+function matchLocation(raw){
+  const normalized = normalizeHeader(raw);
+  if(!normalized) return null;
+  const exact = LOCATIONS.find(v => normalizeHeader(v) === normalized);
+  if(exact) return exact;
+  return LOCATIONS.find(v => normalized.startsWith(normalizeHeader(v))) || null;
+}
+
 async function importExcel(file){
   const buffer = await file.arrayBuffer();
   const workbook = new ExcelJS.Workbook();
@@ -650,7 +658,7 @@ async function importExcel(file){
     const name = String(cell('name') || '').trim();
     if(!name) continue;
 
-    const location = matchFixedValue(cell('location'), LOCATIONS);
+    const location = matchLocation(cell('location'));
     if(!location){ errors.push(`Ligne ${r} (${name}) : emplacement "${cell('location') || ''}" non reconnu.`); continue; }
 
     const rawCategory = String(cell('category') || '').trim();
