@@ -32,7 +32,7 @@ const db = initializeFirestore(firebaseApp, {
 const itemsCol = collection(db, 'items');
 const metaRef = doc(db, 'meta', 'config');
 
-const LOCATIONS = ["Container 1", "Container 2", "Container 3", "Hangar de l'huma", "CD93"];
+const DEFAULT_LOCATIONS = ["Container 1", "Container 2", "Container 3", "Hangar de l'huma", "CD93"];
 const DEFAULT_CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Textile", "Matériel production", "outillage", "consommable", "sport", "structure"];
 const CONDITIONS = ["Bon état", "Endommagé", "À réparer", "Hors service"];
 const DEFAULT_UNITS = ["Unités", "ML", "M2"];
@@ -40,6 +40,7 @@ const MAX_PHOTOS = 5;
 
 let items = [];
 let units = [];
+let locations = [];
 let categories = [];
 let unsubItems = null;
 let unsubMeta = null;
@@ -130,7 +131,6 @@ onAuthStateChanged(auth, (user)=>{
   if (user){
     authScreen.style.display = 'none';
     appRoot.style.display = 'block';
-    renderLocationSelect();
     startListeners();
   } else {
     authScreen.style.display = 'flex';
@@ -149,18 +149,27 @@ function startListeners(){
     const data = snap.data() || {};
     units = data.units && data.units.length ? data.units : DEFAULT_UNITS;
     categories = data.categories && data.categories.length ? data.categories : DEFAULT_CATEGORIES;
+    locations = data.locations && data.locations.length ? data.locations : DEFAULT_LOCATIONS;
+    renderChips();
     renderCategoryChips();
     renderList();
     if(sheetOverlay.classList.contains('open')){
       const keepUnit = unitSelect.value;
       const keepCat = categorySelect.value;
+      const keepLoc = locationSelect.value;
       renderUnitSelect();
       renderCategorySelect();
+      renderLocationSelect();
       unitSelect.value = keepUnit;
       categorySelect.value = keepCat;
+      locationSelect.value = keepLoc;
     }
   });
-  setDoc(metaRef, {units: arrayUnion(...DEFAULT_UNITS), categories: arrayUnion(...DEFAULT_CATEGORIES)}, {merge:true});
+  setDoc(metaRef, {
+    units: arrayUnion(...DEFAULT_UNITS),
+    categories: arrayUnion(...DEFAULT_CATEGORIES),
+    locations: arrayUnion(...DEFAULT_LOCATIONS),
+  }, {merge:true});
 }
 
 function stopListeners(){
@@ -169,11 +178,12 @@ function stopListeners(){
   items = [];
   units = [];
   categories = [];
+  locations = [];
 }
 
 function renderChips(){
   let html = `<button class="chip ${activeFilter===null?'active':''}" data-loc="">Tous</button>`;
-  LOCATIONS.forEach(loc=>{
+  locations.forEach(loc=>{
     html += `<button class="chip ${activeFilter===loc?'active':''}" data-loc="${escapeHtml(loc)}">${escapeHtml(loc)}</button>`;
   });
   locationChips.innerHTML = html;
@@ -209,7 +219,7 @@ function renderCategoryChips(){
 }
 
 function renderLocationSelect(){
-  locationSelect.innerHTML = LOCATIONS.map(loc=>
+  locationSelect.innerHTML = locations.map(loc=>
     `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`
   ).join('');
 }
@@ -261,7 +271,7 @@ function renderList(){
       <div class="thumb ${getItemPhotos(it).length ? 'has-photo' : ''}" style="${getItemPhotos(it)[0] ? `background-image:url(${getItemPhotos(it)[0]})` : ''}">${getItemPhotos(it)[0] ? '' : '&#128247;'}</div>
       <div class="card-body" data-action="edit">
         <div class="card-name">${escapeHtml(it.name)}</div>
-        <span class="card-loc">${escapeHtml(it.location)}</span>
+        ${it.location ? `<span class="card-loc">${escapeHtml(it.location)}</span>` : ''}
         ${it.category ? `<span class="card-category">${escapeHtml(it.category)}</span>` : ''}
       </div>
       <div class="card-actions">
@@ -545,7 +555,7 @@ document.getElementById('saveBtn').addEventListener('click', async ()=>{
   if(!name){ nameInput.focus(); return; }
   const category = categorySelect.value;
   if(!category){ categorySelect.focus(); return; }
-  const location = locationSelect.value || LOCATIONS[0];
+  const location = locationSelect.value || locations[0];
   const unit = unitSelect.value || units[0];
   const dimensions = dimensionsInput.value.trim();
   const condition = conditionSelect.value;
@@ -671,9 +681,9 @@ function matchFixedValue(raw, allowedList){
 function matchLocation(raw){
   const normalized = normalizeHeader(raw);
   if(!normalized) return null;
-  const exact = LOCATIONS.find(v => normalizeHeader(v) === normalized);
+  const exact = locations.find(v => normalizeHeader(v) === normalized);
   if(exact) return exact;
-  return LOCATIONS.find(v => normalized.startsWith(normalizeHeader(v))) || null;
+  return locations.find(v => normalized.startsWith(normalizeHeader(v))) || null;
 }
 
 async function importExcel(file){
@@ -696,6 +706,7 @@ async function importExcel(file){
   const errors = [];
   const newUnits = new Set();
   const newCategories = new Set();
+  const newLocations = new Set();
 
   for(let r = 2; r <= sheet.rowCount; r++){
     const row = sheet.getRow(r);
@@ -705,8 +716,12 @@ async function importExcel(file){
     const name = String(cell('name') || '').trim();
     if(!name) continue;
 
-    const location = matchLocation(cell('location'));
-    if(!location){ errors.push(`Ligne ${r} (${name}) : emplacement "${cell('location') || ''}" non reconnu.`); continue; }
+    const rawLocation = String(cell('location') || '').trim();
+    let location = '';
+    if(rawLocation){
+      location = matchLocation(rawLocation) || rawLocation;
+      if(!locations.includes(location)) newLocations.add(location);
+    }
 
     const rawCategory = String(cell('category') || '').trim();
     if(!rawCategory){ errors.push(`Ligne ${r} (${name}) : catégorie manquante.`); continue; }
@@ -732,14 +747,16 @@ async function importExcel(file){
   }
 
   const summary = `Importer ${validItems.length} article(s) dans l'inventaire partagé ?` +
+    (newLocations.size ? `\n\nNouvel(s) emplacement(s) qui seront créés : ${[...newLocations].join(', ')}` : '') +
     (newCategories.size ? `\n\nNouvelle(s) catégorie(s) qui seront créées : ${[...newCategories].join(', ')}` : '') +
     (errors.length ? `\n\n${errors.length} ligne(s) ignorée(s) :\n${errors.slice(0,10).join('\n')}${errors.length>10 ? '\n…' : ''}` : '');
   if(!confirm(summary)) return;
 
-  if(newUnits.size || newCategories.size){
+  if(newUnits.size || newCategories.size || newLocations.size){
     const metaUpdate = {};
     if(newUnits.size) metaUpdate.units = arrayUnion(...newUnits);
     if(newCategories.size) metaUpdate.categories = arrayUnion(...newCategories);
+    if(newLocations.size) metaUpdate.locations = arrayUnion(...newLocations);
     await setDoc(metaRef, metaUpdate, {merge:true});
   }
   await Promise.all(validItems.map(it => setDoc(doc(itemsCol), it)));
