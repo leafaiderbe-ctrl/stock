@@ -110,6 +110,29 @@ header .count{
 
 main{ padding:16px; }
 
+.selection-bar{
+  display:flex; align-items:center; gap:10px;
+  margin-bottom:12px;
+}
+.sel-btn{
+  flex:none;
+  font-family:'Poppins', sans-serif;
+  font-size:10.5px;
+  text-transform:uppercase;
+  letter-spacing:0.03em;
+  padding:6px 10px;
+  border-radius:4px;
+  border:1px solid var(--navy);
+  background:transparent;
+  color:var(--navy);
+}
+.sel-btn.danger{ border-color:var(--rust); color:var(--rust); }
+.selection-count{
+  font-size:12px;
+  color:var(--ink);
+  opacity:0.65;
+}
+
 .empty{
   text-align:center;
   padding:60px 20px;
@@ -125,18 +148,44 @@ main{ padding:16px; }
   background:var(--paper-2);
   border:1px solid var(--line);
   border-radius:4px;
-  padding:12px 14px 12px 22px;
+  padding:12px 14px 12px 28px;
   margin-bottom:10px;
 }
-.card::before{
-  content:"";
+.card-select{
   position:absolute;
-  left:9px; top:50%;
+  left:0; top:50%;
   transform:translateY(-50%);
-  width:9px; height:9px;
+  width:24px; height:24px;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  z-index:2;
+}
+.card-select input{
+  position:absolute;
+  opacity:0;
+  width:100%; height:100%;
+  margin:0;
+  cursor:pointer;
+}
+.card-select .check-visual{
+  position:relative;
+  width:10px; height:10px;
   border-radius:50%;
   background:var(--paper);
   border:1.5px solid var(--line);
+}
+.card-select input:checked + .check-visual{
+  background:var(--mustard);
+  border-color:var(--mustard);
+}
+.card-select input:checked + .check-visual::after{
+  content:"";
+  position:absolute;
+  left:50%; top:42%;
+  width:3px; height:5px;
+  border:solid var(--navy-2);
+  border-width:0 1.5px 1.5px 0;
+  transform:translate(-50%,-50%) rotate(45deg);
 }
 .card::after{
   content:"";

@@ -51,6 +51,8 @@ let editingId = null;
 let newItemRef = null;
 let pendingPhotos = [];
 let pendingQty = 1;
+let selectedIds = new Set();
+let currentFilteredIds = [];
 
 const authScreen = document.getElementById('authScreen');
 const appRoot = document.getElementById('appRoot');
@@ -76,6 +78,9 @@ const deleteBtn = document.getElementById('deleteBtn');
 const dimensionsInput = document.getElementById('dimensionsInput');
 const conditionSelect = document.getElementById('conditionSelect');
 const notesInput = document.getElementById('notesInput');
+const selectAllBtn = document.getElementById('selectAllBtn');
+const selectionCount = document.getElementById('selectionCount');
+const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
 
 function showAuthError(message){
   authError.textContent = message;
@@ -222,14 +227,20 @@ function renderUnitSelect(){
 }
 
 function renderList(){
+  for(const id of [...selectedIds]){
+    if(!items.find(it=>it.id===id)) selectedIds.delete(id);
+  }
+
   let filtered = items.filter(it=>{
     const matchLoc = !activeFilter || it.location === activeFilter;
     const matchCategory = activeCategories.size === 0 || activeCategories.has(it.category);
     const matchSearch = !searchTerm || it.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchLoc && matchCategory && matchSearch;
   });
+  currentFilteredIds = filtered.map(it=>it.id);
 
   itemCount.textContent = items.length + (items.length>1 ? " articles" : " article");
+  renderSelectionBar();
 
   if(filtered.length === 0){
     list.innerHTML = "";
@@ -243,6 +254,10 @@ function renderList(){
 
   list.innerHTML = filtered.map(it=>`
     <div class="card" data-id="${it.id}">
+      <label class="card-select">
+        <input type="checkbox" data-select-id="${it.id}" ${selectedIds.has(it.id) ? 'checked' : ''}>
+        <span class="check-visual"></span>
+      </label>
       <div class="thumb ${getItemPhotos(it).length ? 'has-photo' : ''}" style="${getItemPhotos(it)[0] ? `background-image:url(${getItemPhotos(it)[0]})` : ''}">${getItemPhotos(it)[0] ? '' : '&#128247;'}</div>
       <div class="card-body" data-action="edit">
         <div class="card-name">${escapeHtml(it.name)}</div>
@@ -284,8 +299,40 @@ function renderList(){
         openPhotoViewer(getItemPhotos(it), 0);
       });
     }
+    const selectCheckbox = card.querySelector('[data-select-id]');
+    selectCheckbox.addEventListener('click', (e)=> e.stopPropagation());
+    selectCheckbox.addEventListener('change', (e)=>{
+      if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+      renderSelectionBar();
+    });
   });
 }
+
+function renderSelectionBar(){
+  const count = selectedIds.size;
+  selectionCount.textContent = count > 0 ? `${count} sélectionné(s)` : '';
+  bulkDeleteBtn.style.display = count > 0 ? 'inline-block' : 'none';
+  const allSelected = currentFilteredIds.length > 0 && currentFilteredIds.every(id=>selectedIds.has(id));
+  selectAllBtn.textContent = allSelected ? 'Tout désélectionner' : 'Tout sélectionner';
+}
+
+selectAllBtn.addEventListener('click', ()=>{
+  const allSelected = currentFilteredIds.length > 0 && currentFilteredIds.every(id=>selectedIds.has(id));
+  if(allSelected){
+    currentFilteredIds.forEach(id=>selectedIds.delete(id));
+  } else {
+    currentFilteredIds.forEach(id=>selectedIds.add(id));
+  }
+  renderList();
+});
+
+bulkDeleteBtn.addEventListener('click', async ()=>{
+  if(selectedIds.size === 0) return;
+  if(!confirm(`Supprimer ${selectedIds.size} article(s) sélectionné(s) ? Cette action est irréversible.`)) return;
+  await Promise.all([...selectedIds].map(id => deleteDoc(doc(itemsCol, id))));
+  selectedIds.clear();
+  renderSelectionBar();
+});
 
 function getItemPhotos(it){
   if(it.photos && it.photos.length) return it.photos;
