@@ -250,6 +250,7 @@ function renderList(){
     const matchSearch = !searchTerm || it.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchLoc && matchCategory && matchSearch;
   });
+  filtered.sort((a,b)=> a.name.localeCompare(b.name, 'fr', {sensitivity:'base'}));
   currentFilteredIds = filtered.map(it=>it.id);
 
   itemCount.textContent = items.length + (items.length>1 ? " articles" : " article");
