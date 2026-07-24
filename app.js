@@ -32,9 +32,9 @@ const db = initializeFirestore(firebaseApp, {
 const itemsCol = collection(db, 'items');
 const metaRef = doc(db, 'meta', 'config');
 
-const DEFAULT_LOCATIONS = ["Container 1", "Container 2", "Container 3", "Hangar de l'huma", "CD93"];
+const DEFAULT_LOCATIONS = ["Container 1", "Container 2", "Container 3", "Hangar Humanité", "CD93", "Algeco"];
 const DEFAULT_CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Textile", "Matériel production", "outillage", "consommable", "sport", "structure"];
-const CONDITIONS = ["Bon état", "Endommagé", "À réparer", "Hors service"];
+const CONDITIONS = ["Bon état", "Usagé", "À réparer"];
 const DEFAULT_UNITS = ["Unités", "ML", "M2"];
 const MAX_PHOTOS = 5;
 
