@@ -381,6 +381,7 @@ function openPhotoViewer(photos, index){
   viewerIndex = index;
   renderPhotoViewer();
   photoViewerOverlay.classList.add('open');
+  history.pushState({modal:'photo'}, '');
 }
 function renderPhotoViewer(){
   photoViewerImg.src = viewerPhotos[viewerIndex];
@@ -390,6 +391,9 @@ function renderPhotoViewer(){
   viewerCounter.textContent = multi ? `${viewerIndex+1} / ${viewerPhotos.length}` : '';
 }
 function closePhotoViewer(){
+  if(photoViewerOverlay.classList.contains('open')) history.back();
+}
+function hidePhotoViewer(){
   photoViewerOverlay.classList.remove('open');
   photoViewerImg.src = '';
 }
@@ -481,13 +485,23 @@ function openSheet(id){
   notesInput.value = it ? (it.notes || "") : "";
 
   sheetOverlay.classList.add('open');
+  history.pushState({modal:'sheet'}, '');
 }
 
 function closeSheet(){
+  if(sheetOverlay.classList.contains('open')) history.back();
+}
+
+function hideSheet(){
   sheetOverlay.classList.remove('open');
   editingId = null;
   newItemRef = null;
 }
+
+window.addEventListener('popstate', ()=>{
+  if(photoViewerOverlay.classList.contains('open')) hidePhotoViewer();
+  else if(sheetOverlay.classList.contains('open')) hideSheet();
+});
 
 document.getElementById('addBtn').addEventListener('click', ()=>openSheet(null));
 sheetOverlay.addEventListener('click', (e)=>{ if(e.target === sheetOverlay) closeSheet(); });
