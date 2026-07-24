@@ -76,6 +76,7 @@ const categorySelect = document.getElementById('categorySelect');
 const photoInput = document.getElementById('photoInput');
 const photoGrid = document.getElementById('photoGrid');
 const deleteBtn = document.getElementById('deleteBtn');
+const storedCheckbox = document.getElementById('storedCheckbox');
 const dimensionsInput = document.getElementById('dimensionsInput');
 const conditionSelect = document.getElementById('conditionSelect');
 const notesInput = document.getElementById('notesInput');
@@ -267,7 +268,7 @@ function renderList(){
   emptyState.style.display = "none";
 
   list.innerHTML = filtered.map(it=>`
-    <div class="card" data-id="${it.id}">
+    <div class="card ${it.stored ? 'stored' : ''}" data-id="${it.id}">
       <label class="card-select">
         <input type="checkbox" data-select-id="${it.id}" ${selectedIds.has(it.id) ? 'checked' : ''}>
         <span class="check-visual"></span>
@@ -277,6 +278,10 @@ function renderList(){
         <div class="card-name">${escapeHtml(it.name)}</div>
         ${it.location ? `<span class="card-loc">${escapeHtml(it.location)}</span>` : ''}
         ${it.category ? `<span class="card-category">${escapeHtml(it.category)}</span>` : ''}
+        <label class="stored-toggle">
+          <input type="checkbox" data-stored-id="${it.id}" ${it.stored ? 'checked' : ''}>
+          <span>Rangé</span>
+        </label>
       </div>
       <div class="card-actions">
         <div class="stepper">
@@ -319,7 +324,16 @@ function renderList(){
       if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
       renderSelectionBar();
     });
+    const storedToggle = card.querySelector('[data-stored-id]');
+    storedToggle.addEventListener('click', (e)=> e.stopPropagation());
+    storedToggle.addEventListener('change', (e)=>{
+      toggleStored(id, e.target.checked);
+    });
   });
+}
+
+async function toggleStored(id, stored){
+  await updateDoc(doc(itemsCol, id), {stored, updatedAt: Date.now()});
 }
 
 function renderSelectionBar(){
@@ -446,6 +460,7 @@ function openSheet(id){
 
   sheetTitle.textContent = it ? "Modifier l'article" : "Nouvel article";
   nameInput.value = it ? it.name : "";
+  storedCheckbox.checked = it ? !!it.stored : false;
   pendingQty = it ? it.qty : 1;
   qtyDisplay.value = pendingQty;
   pendingPhotos = it ? [...getItemPhotos(it)] : [];
@@ -567,7 +582,7 @@ document.getElementById('saveBtn').addEventListener('click', async ()=>{
 
   const data = {
     name, qty:pendingQty, location, category, unit, photos:pendingPhotos,
-    dimensions, condition, notes, updatedAt: Date.now(),
+    dimensions, condition, notes, stored: storedCheckbox.checked, updatedAt: Date.now(),
   };
 
   if(editingId){

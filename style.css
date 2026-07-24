@@ -151,6 +151,26 @@ main{ padding:16px; }
   padding:12px 14px 12px 28px;
   margin-bottom:10px;
 }
+.card.stored{
+  background:#C5E8C0;
+  border-color:var(--sage);
+}
+.stored-toggle{
+  display:flex; align-items:center; gap:4px;
+  font-family:'Poppins', sans-serif;
+  font-size:9.5px;
+  text-transform:uppercase;
+  letter-spacing:0.03em;
+  color:var(--ink);
+  opacity:0.65;
+  cursor:pointer;
+  margin-top:2px;
+}
+.stored-toggle input{
+  width:13px; height:13px;
+  cursor:pointer;
+  accent-color: var(--sage);
+}
 .card-select{
   position:absolute;
   left:0; top:50%;
@@ -399,6 +419,23 @@ main{ padding:16px; }
   letter-spacing:0.04em;
   color:var(--navy);
   margin-bottom:5px;
+}
+.checkbox-field{
+  display:flex !important;
+  align-items:center;
+  gap:8px;
+  margin-bottom:0 !important;
+}
+.checkbox-field input{
+  width:18px; height:18px;
+  accent-color: var(--sage);
+  cursor:pointer;
+}
+.checkbox-field span{
+  font-size:14px;
+  text-transform:none;
+  letter-spacing:normal;
+  color:var(--ink);
 }
 .field input[type=text], .field select, .field textarea{
   width:100%;
