@@ -11,7 +11,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentSingleTabManager,
-  collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, arrayUnion,
+  collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, arrayUnion, arrayRemove,
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -37,6 +37,7 @@ const DEFAULT_CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Text
 const CONDITIONS = ["Bon état", "Usagé", "À réparer"];
 const DEFAULT_UNITS = ["Unités", "ML", "M2"];
 const MAX_PHOTOS = 5;
+const ADMIN_PASSWORD = "BelEte2026";
 
 let items = [];
 let units = [];
@@ -54,6 +55,7 @@ let pendingPhotos = [];
 let pendingQty = 1;
 let selectedIds = new Set();
 let currentFilteredIds = [];
+let isAdmin = false;
 
 const authScreen = document.getElementById('authScreen');
 const appRoot = document.getElementById('appRoot');
@@ -83,6 +85,17 @@ const notesInput = document.getElementById('notesInput');
 const selectAllBtn = document.getElementById('selectAllBtn');
 const selectionCount = document.getElementById('selectionCount');
 const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+
+const adminOverlay = document.getElementById('adminOverlay');
+const adminLoginView = document.getElementById('adminLoginView');
+const adminManageView = document.getElementById('adminManageView');
+const adminPasswordInput = document.getElementById('adminPasswordInput');
+const adminError = document.getElementById('adminError');
+const adminUnlockBtn = document.getElementById('adminUnlockBtn');
+const adminLocationList = document.getElementById('adminLocationList');
+const adminCategoryList = document.getElementById('adminCategoryList');
+const adminNewLocationInput = document.getElementById('adminNewLocationInput');
+const adminNewCategoryInput = document.getElementById('adminNewCategoryInput');
 
 function showAuthError(message){
   authError.textContent = message;
@@ -145,6 +158,7 @@ function startListeners(){
     items = snapshot.docs.map((d)=>({id: d.id, ...d.data()}));
     renderChips();
     renderList();
+    if(isAdmin && adminOverlay.classList.contains('open')) renderAdminLists();
   });
   unsubMeta = onSnapshot(metaRef, (snap)=>{
     const data = snap.data() || {};
@@ -154,6 +168,7 @@ function startListeners(){
     renderChips();
     renderCategoryChips();
     renderList();
+    if(isAdmin && adminOverlay.classList.contains('open')) renderAdminLists();
     if(sheetOverlay.classList.contains('open')){
       const keepUnit = unitSelect.value;
       const keepCat = categorySelect.value;
@@ -183,6 +198,7 @@ function stopListeners(){
   units = [];
   categories = [];
   locations = [];
+  isAdmin = false;
 }
 
 function renderChips(){
@@ -498,8 +514,109 @@ function hideSheet(){
   newItemRef = null;
 }
 
+function openAdmin(){
+  adminPasswordInput.value = '';
+  adminError.style.display = 'none';
+  if(isAdmin){
+    showAdminManageView();
+  } else {
+    adminLoginView.style.display = 'block';
+    adminManageView.style.display = 'none';
+  }
+  adminOverlay.classList.add('open');
+  history.pushState({modal:'admin'}, '');
+}
+
+function closeAdmin(){
+  if(adminOverlay.classList.contains('open')) history.back();
+}
+
+function hideAdmin(){
+  adminOverlay.classList.remove('open');
+}
+
+function showAdminManageView(){
+  adminLoginView.style.display = 'none';
+  adminManageView.style.display = 'block';
+  renderAdminLists();
+}
+
+function renderAdminLists(){
+  adminLocationList.innerHTML = locations.map(loc=>{
+    const count = items.filter(it=>it.location===loc).length;
+    return `<div class="admin-list-item"><span>${escapeHtml(loc)}${count ? ` (${count})` : ''}</span><button data-remove-location="${escapeHtml(loc)}" aria-label="Supprimer">&times;</button></div>`;
+  }).join('');
+  adminLocationList.querySelectorAll('[data-remove-location]').forEach(btn=>{
+    btn.addEventListener('click', ()=> removeLocation(btn.dataset.removeLocation));
+  });
+
+  adminCategoryList.innerHTML = categories.map(cat=>{
+    const count = items.filter(it=>it.category===cat).length;
+    return `<div class="admin-list-item"><span>${escapeHtml(cat)}${count ? ` (${count})` : ''}</span><button data-remove-category="${escapeHtml(cat)}" aria-label="Supprimer">&times;</button></div>`;
+  }).join('');
+  adminCategoryList.querySelectorAll('[data-remove-category]').forEach(btn=>{
+    btn.addEventListener('click', ()=> removeCategory(btn.dataset.removeCategory));
+  });
+}
+
+async function removeLocation(loc){
+  const count = items.filter(it=>it.location===loc).length;
+  const msg = count > 0
+    ? `${count} article(s) utilisent l'emplacement "${loc}". Il ne sera plus proposé dans les filtres et la fiche produit, mais les articles concernés garderont cette valeur. Continuer ?`
+    : `Supprimer l'emplacement "${loc}" ?`;
+  if(!confirm(msg)) return;
+  await updateDoc(metaRef, {locations: arrayRemove(loc)});
+}
+
+async function removeCategory(cat){
+  const count = items.filter(it=>it.category===cat).length;
+  const msg = count > 0
+    ? `${count} article(s) utilisent la catégorie "${cat}". Elle ne sera plus proposée dans les filtres et la fiche produit, mais les articles concernés garderont cette valeur. Continuer ?`
+    : `Supprimer la catégorie "${cat}" ?`;
+  if(!confirm(msg)) return;
+  await updateDoc(metaRef, {categories: arrayRemove(cat)});
+}
+
+adminUnlockBtn.addEventListener('click', ()=>{
+  if(adminPasswordInput.value === ADMIN_PASSWORD){
+    isAdmin = true;
+    showAdminManageView();
+  } else {
+    adminError.textContent = "Mot de passe incorrect.";
+    adminError.style.display = 'block';
+  }
+});
+adminPasswordInput.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') adminUnlockBtn.click();
+});
+
+adminNewLocationInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') document.getElementById('adminAddLocationBtn').click(); });
+document.getElementById('adminAddLocationBtn').addEventListener('click', async ()=>{
+  const val = adminNewLocationInput.value.trim();
+  if(!val) return;
+  if(!locations.includes(val)){
+    await setDoc(metaRef, {locations: arrayUnion(val)}, {merge:true});
+  }
+  adminNewLocationInput.value = '';
+});
+
+adminNewCategoryInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') document.getElementById('adminAddCategoryBtn').click(); });
+document.getElementById('adminAddCategoryBtn').addEventListener('click', async ()=>{
+  const val = adminNewCategoryInput.value.trim();
+  if(!val) return;
+  if(!categories.includes(val)){
+    await setDoc(metaRef, {categories: arrayUnion(val)}, {merge:true});
+  }
+  adminNewCategoryInput.value = '';
+});
+
+document.getElementById('adminBtn').addEventListener('click', openAdmin);
+adminOverlay.addEventListener('click', (e)=>{ if(e.target === adminOverlay) closeAdmin(); });
+document.getElementById('adminBackBtn').addEventListener('click', closeAdmin);
+
 window.addEventListener('popstate', ()=>{
   if(photoViewerOverlay.classList.contains('open')) hidePhotoViewer();
+  else if(adminOverlay.classList.contains('open')) hideAdmin();
   else if(sheetOverlay.classList.contains('open')) hideSheet();
 });
 

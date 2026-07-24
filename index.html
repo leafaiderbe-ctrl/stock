@@ -54,6 +54,7 @@
     <h1>Stock</h1>
     <div class="header-actions">
       <span class="count mono" id="itemCount">0 article</span>
+      <button class="io-btn mono" id="adminBtn">Admin</button>
       <button class="io-btn mono" id="exportExcelBtn">Excel</button>
       <button class="io-btn mono" id="importExcelBtn">Importer</button>
       <button class="io-btn mono" id="signOutBtn">Déconnexion</button>
@@ -169,6 +170,46 @@
   <img id="photoViewerImg" alt="Photo de l'article">
   <button class="viewer-nav viewer-next" id="viewerNextBtn" aria-label="Photo suivante">&#8250;</button>
   <div class="viewer-counter" id="viewerCounter"></div>
+</div>
+
+<div class="sheet-overlay" id="adminOverlay">
+  <div class="sheet">
+    <div class="sheet-header">
+      <button class="back-btn" id="adminBackBtn" aria-label="Retour">&#8592;</button>
+      <h2>Espace admin</h2>
+    </div>
+
+    <div id="adminLoginView">
+      <div class="field">
+        <label>Mot de passe</label>
+        <input type="password" id="adminPasswordInput" placeholder="••••••••">
+      </div>
+      <div class="auth-error" id="adminError" style="display:none;"></div>
+      <div class="sheet-actions">
+        <button class="btn-primary" id="adminUnlockBtn">Déverrouiller</button>
+      </div>
+    </div>
+
+    <div id="adminManageView" style="display:none;">
+      <div class="field">
+        <label>Emplacements</label>
+        <div class="admin-list" id="adminLocationList"></div>
+        <div class="add-row">
+          <input type="text" id="adminNewLocationInput" placeholder="Nouvel emplacement…">
+          <button id="adminAddLocationBtn">Ajouter</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Catégories</label>
+        <div class="admin-list" id="adminCategoryList"></div>
+        <div class="add-row">
+          <input type="text" id="adminNewCategoryInput" placeholder="Nouvelle catégorie…">
+          <button id="adminAddCategoryBtn">Ajouter</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 </div>

@@ -504,6 +504,32 @@ main{ padding:16px; }
   color:var(--ink);
 }
 
+.admin-list{
+  display:flex; flex-direction:column; gap:6px;
+}
+.admin-list-item{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:8px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:8px 6px 8px 12px;
+  font-size:14px;
+}
+.admin-list-item button{
+  flex:none;
+  width:32px; height:32px;
+  border-radius:50%;
+  border:none;
+  background:none;
+  color:var(--rust);
+  font-size:18px;
+  line-height:1;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+.admin-list-item button:active{ background:rgba(138,42,32,0.12); }
+
 .add-row{
   display:flex; gap:8px; margin-top:8px;
 }
