@@ -85,6 +85,12 @@ const notesInput = document.getElementById('notesInput');
 const selectAllBtn = document.getElementById('selectAllBtn');
 const selectionCount = document.getElementById('selectionCount');
 const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+const bulkEditBtn = document.getElementById('bulkEditBtn');
+const bulkEditOverlay = document.getElementById('bulkEditOverlay');
+const bulkEditTitle = document.getElementById('bulkEditTitle');
+const bulkEditLocationSelect = document.getElementById('bulkEditLocationSelect');
+const bulkEditCategorySelect = document.getElementById('bulkEditCategorySelect');
+const bulkEditApplyBtn = document.getElementById('bulkEditApplyBtn');
 
 const adminOverlay = document.getElementById('adminOverlay');
 const adminLoginView = document.getElementById('adminLoginView');
@@ -169,6 +175,13 @@ function startListeners(){
     renderCategoryChips();
     renderList();
     if(isAdmin && adminOverlay.classList.contains('open')) renderAdminLists();
+    if(bulkEditOverlay.classList.contains('open')){
+      const keepLoc = bulkEditLocationSelect.value;
+      const keepCat = bulkEditCategorySelect.value;
+      renderBulkEditSelects();
+      bulkEditLocationSelect.value = keepLoc;
+      bulkEditCategorySelect.value = keepCat;
+    }
     if(sheetOverlay.classList.contains('open')){
       const keepUnit = unitSelect.value;
       const keepCat = categorySelect.value;
@@ -356,6 +369,7 @@ function renderSelectionBar(){
   const count = selectedIds.size;
   selectionCount.textContent = count > 0 ? `${count} sélectionné(s)` : '';
   bulkDeleteBtn.style.display = count > 0 ? 'inline-block' : 'none';
+  bulkEditBtn.style.display = count > 0 ? 'inline-block' : 'none';
   const allSelected = currentFilteredIds.length > 0 && currentFilteredIds.every(id=>selectedIds.has(id));
   selectAllBtn.textContent = allSelected ? 'Tout désélectionner' : 'Tout sélectionner';
 }
@@ -614,9 +628,54 @@ document.getElementById('adminBtn').addEventListener('click', openAdmin);
 adminOverlay.addEventListener('click', (e)=>{ if(e.target === adminOverlay) closeAdmin(); });
 document.getElementById('adminBackBtn').addEventListener('click', closeAdmin);
 
+function renderBulkEditSelects(){
+  bulkEditLocationSelect.innerHTML = `<option value="">— Ne pas changer —</option>` + locations.map(loc=>
+    `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`
+  ).join('');
+  bulkEditCategorySelect.innerHTML = `<option value="">— Ne pas changer —</option>` + categories.map(cat=>
+    `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`
+  ).join('');
+}
+
+function openBulkEdit(){
+  if(selectedIds.size === 0) return;
+  bulkEditTitle.textContent = `Modifier ${selectedIds.size} article(s)`;
+  renderBulkEditSelects();
+  bulkEditLocationSelect.value = '';
+  bulkEditCategorySelect.value = '';
+  bulkEditOverlay.classList.add('open');
+  history.pushState({modal:'bulkEdit'}, '');
+}
+
+function closeBulkEdit(){
+  if(bulkEditOverlay.classList.contains('open')) history.back();
+}
+
+function hideBulkEdit(){
+  bulkEditOverlay.classList.remove('open');
+}
+
+bulkEditBtn.addEventListener('click', openBulkEdit);
+bulkEditOverlay.addEventListener('click', (e)=>{ if(e.target === bulkEditOverlay) closeBulkEdit(); });
+document.getElementById('bulkEditBackBtn').addEventListener('click', closeBulkEdit);
+
+bulkEditApplyBtn.addEventListener('click', async ()=>{
+  const newLoc = bulkEditLocationSelect.value;
+  const newCat = bulkEditCategorySelect.value;
+  if(!newLoc && !newCat){ closeBulkEdit(); return; }
+  const data = {updatedAt: Date.now()};
+  if(newLoc) data.location = newLoc;
+  if(newCat) data.category = newCat;
+  await Promise.all([...selectedIds].map(id => updateDoc(doc(itemsCol, id), data)));
+  selectedIds.clear();
+  renderList();
+  closeBulkEdit();
+});
+
 window.addEventListener('popstate', ()=>{
   if(photoViewerOverlay.classList.contains('open')) hidePhotoViewer();
   else if(adminOverlay.classList.contains('open')) hideAdmin();
+  else if(bulkEditOverlay.classList.contains('open')) hideBulkEdit();
   else if(sheetOverlay.classList.contains('open')) hideSheet();
 });
 

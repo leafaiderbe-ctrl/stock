@@ -72,6 +72,7 @@
   <div class="selection-bar" id="selectionBar">
     <button class="sel-btn mono" id="selectAllBtn">Tout sélectionner</button>
     <span class="selection-count mono" id="selectionCount"></span>
+    <button class="sel-btn mono" id="bulkEditBtn" style="display:none;">Modifier</button>
     <button class="sel-btn danger mono" id="bulkDeleteBtn" style="display:none;">Supprimer</button>
   </div>
   <div id="emptyState" class="empty" style="display:none;">
@@ -208,6 +209,33 @@
           <button id="adminAddCategoryBtn">Ajouter</button>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="bulkEditOverlay">
+  <div class="sheet">
+    <div class="sheet-header">
+      <button class="back-btn" id="bulkEditBackBtn" aria-label="Retour">&#8592;</button>
+      <h2 id="bulkEditTitle">Modifier la sélection</h2>
+    </div>
+
+    <div class="field">
+      <label>Emplacement</label>
+      <select id="bulkEditLocationSelect">
+        <option value="">— Ne pas changer —</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Catégorie</label>
+      <select id="bulkEditCategorySelect">
+        <option value="">— Ne pas changer —</option>
+      </select>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn-primary" id="bulkEditApplyBtn">Appliquer</button>
     </div>
   </div>
 </div>
