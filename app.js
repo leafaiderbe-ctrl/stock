@@ -86,6 +86,8 @@ const storedCheckbox = document.getElementById('storedCheckbox');
 const dimensionsInput = document.getElementById('dimensionsInput');
 const conditionSelect = document.getElementById('conditionSelect');
 const notesInput = document.getElementById('notesInput');
+const sheetMetaInfo = document.getElementById('sheetMetaInfo');
+const sheetMetaText = document.getElementById('sheetMetaText');
 const selectAllBtn = document.getElementById('selectAllBtn');
 const selectionCount = document.getElementById('selectionCount');
 const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
@@ -177,6 +179,11 @@ function logActivity(type, itemName){
 function formatDate(ts){
   if(!ts || !ts.toDate) return '';
   return ts.toDate().toLocaleString('fr-FR', {day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit'});
+}
+
+function formatEpoch(ms){
+  if(!ms) return '';
+  return new Date(ms).toLocaleString('fr-FR', {day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit'});
 }
 
 onAuthStateChanged(auth, (user)=>{
@@ -548,6 +555,17 @@ function openSheet(id){
   conditionSelect.value = it ? (it.condition || "") : "";
   notesInput.value = it ? (it.notes || "") : "";
 
+  const metaLines = [];
+  if(it && it.createdBy) metaLines.push(`Créé par ${it.createdBy}${it.createdAt ? ' le ' + formatEpoch(it.createdAt) : ''}`);
+  if(it && it.updatedBy && it.updatedAt !== it.createdAt) metaLines.push(`Modifié par ${it.updatedBy}${it.updatedAt ? ' le ' + formatEpoch(it.updatedAt) : ''}`);
+  if(it && it.photosUpdatedBy) metaLines.push(`Photos ajoutées par ${it.photosUpdatedBy}${it.photosUpdatedAt ? ' le ' + formatEpoch(it.photosUpdatedAt) : ''}`);
+  if(metaLines.length){
+    sheetMetaText.innerHTML = metaLines.map(l=>escapeHtml(l)).join('<br>');
+    sheetMetaInfo.style.display = 'block';
+  } else {
+    sheetMetaInfo.style.display = 'none';
+  }
+
   sheetOverlay.classList.add('open');
   history.pushState({modal:'sheet'}, '');
 }
@@ -834,20 +852,30 @@ document.getElementById('saveBtn').addEventListener('click', async ()=>{
   const dimensions = dimensionsInput.value.trim();
   const condition = conditionSelect.value;
   const notes = notesInput.value.trim();
+  const userEmail = auth.currentUser ? auth.currentUser.email : 'inconnu';
+  const photosChanged = pendingPhotos.length > sheetOriginalPhotoCount;
+  const now = Date.now();
 
   const data = {
     name, qty:pendingQty, location, category, unit, photos:pendingPhotos,
-    dimensions, condition, notes, stored: storedCheckbox.checked, updatedAt: Date.now(),
+    dimensions, condition, notes, stored: storedCheckbox.checked,
+    updatedAt: now, updatedBy: userEmail,
   };
+  if(photosChanged){
+    data.photosUpdatedAt = now;
+    data.photosUpdatedBy = userEmail;
+  }
 
   if(editingId){
     await updateDoc(doc(itemsCol, editingId), data);
     logActivity('edit', name);
   } else {
+    data.createdAt = now;
+    data.createdBy = userEmail;
     await setDoc(newItemRef, data);
     logActivity('create', name);
   }
-  if(pendingPhotos.length > sheetOriginalPhotoCount){
+  if(photosChanged){
     logActivity('photo_add', name);
   }
   closeSheet();
