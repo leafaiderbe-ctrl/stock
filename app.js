@@ -336,7 +336,7 @@ function renderStoredChips(){
 }
 
 function renderLocationSelect(){
-  locationSelect.innerHTML = locations.map(loc=>
+  locationSelect.innerHTML = `<option value="">-</option>` + locations.map(loc=>
     `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`
   ).join('');
 }
@@ -595,7 +595,7 @@ function openSheet(id){
   deleteBtn.style.display = it ? 'block' : 'none';
 
   renderLocationSelect();
-  if(it) locationSelect.value = it.location;
+  locationSelect.value = it ? (it.location || '') : '';
 
   renderSubLocationSelect();
   subLocationSelect.value = it ? (it.subLocation || "") : "";
@@ -956,7 +956,7 @@ document.getElementById('saveBtn').addEventListener('click', async ()=>{
   if(!name){ nameInput.focus(); showSheetError('Le nom du produit est obligatoire.'); return; }
   const category = categorySelect.value;
   if(!category){ categorySelect.focus(); showSheetError('La catégorie est obligatoire.'); return; }
-  const location = locationSelect.value || locations[0];
+  const location = locationSelect.value;
   const subLocation = subLocationSelect.value;
   const unit = unitSelect.value || units[0];
   const dimensions = dimensionsInput.value.trim();
