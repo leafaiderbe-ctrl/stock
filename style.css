@@ -565,6 +565,11 @@ main{ padding:16px; }
   padding:8px 6px 8px 12px;
   font-size:14px;
 }
+.admin-list-actions{
+  display:flex;
+  gap:2px;
+  flex:none;
+}
 .admin-list-item button{
   flex:none;
   width:32px; height:32px;
@@ -578,6 +583,11 @@ main{ padding:16px; }
   touch-action:manipulation;
 }
 .admin-list-item button:active{ background:rgba(138,42,32,0.12); }
+.admin-list-item button.admin-rename-btn{
+  color:var(--navy);
+  font-size:15px;
+}
+.admin-list-item button.admin-rename-btn:active{ background:rgba(30,59,42,0.12); }
 
 .add-row{
   display:flex; gap:8px; margin-top:8px;

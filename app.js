@@ -12,7 +12,7 @@ import {
 import {
   initializeFirestore, persistentLocalCache, persistentSingleTabManager,
   collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot,
-  arrayUnion, arrayRemove, query, orderBy, limit, serverTimestamp,
+  arrayUnion, arrayRemove, query, orderBy, limit, serverTimestamp, writeBatch,
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -125,6 +125,8 @@ const adminLocationList = document.getElementById('adminLocationList');
 const adminCategoryList = document.getElementById('adminCategoryList');
 const adminNewLocationInput = document.getElementById('adminNewLocationInput');
 const adminNewCategoryInput = document.getElementById('adminNewCategoryInput');
+const adminSubLocationList = document.getElementById('adminSubLocationList');
+const adminNewSubLocationInput = document.getElementById('adminNewSubLocationInput');
 const adminAccountsList = document.getElementById('adminAccountsList');
 const adminActivityList = document.getElementById('adminActivityList');
 
@@ -337,20 +339,24 @@ function renderStoredChips(){
   });
 }
 
+function sortAlpha(arr){
+  return [...arr].sort((a,b)=> a.localeCompare(b, 'fr', {sensitivity:'base'}));
+}
+
 function renderLocationSelect(){
-  locationSelect.innerHTML = `<option value="">-</option>` + locations.map(loc=>
+  locationSelect.innerHTML = `<option value="">-</option>` + sortAlpha(locations).map(loc=>
     `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`
   ).join('');
 }
 
 function renderSubLocationSelect(){
-  subLocationSelect.innerHTML = `<option value="">— Aucun —</option>` + subLocations.map(loc=>
+  subLocationSelect.innerHTML = `<option value="">— Aucun —</option>` + sortAlpha(subLocations).map(loc=>
     `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`
   ).join('');
 }
 
 function renderCategorySelect(){
-  categorySelect.innerHTML = `<option value="">Sélectionner…</option>` + categories.map(cat=>
+  categorySelect.innerHTML = `<option value="">Sélectionner…</option>` + sortAlpha(categories).map(cat=>
     `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`
   ).join('');
 }
@@ -733,40 +739,69 @@ async function loadAdminActivity(){
   }
 }
 
+const ADMIN_FIELD_INFO = {
+  location: {label: 'emplacement', article: "l'", listGetter: ()=>locations, metaKey: 'locations'},
+  category: {label: 'catégorie', article: 'la ', listGetter: ()=>categories, metaKey: 'categories'},
+  subLocation: {label: 'sous-emplacement', article: 'le ', listGetter: ()=>subLocations, metaKey: 'subLocations'},
+};
+
+function renderAdminField(listEl, itemField){
+  const info = ADMIN_FIELD_INFO[itemField];
+  const sorted = [...info.listGetter()].sort((a,b)=> a.localeCompare(b, 'fr', {sensitivity:'base'}));
+  listEl.innerHTML = sorted.map(val=>{
+    const count = items.filter(it=>it[itemField]===val).length;
+    return `<div class="admin-list-item">
+      <span>${escapeHtml(val)}${count ? ` (${count})` : ''}</span>
+      <div class="admin-list-actions">
+        <button class="admin-rename-btn" data-rename="${escapeHtml(val)}" aria-label="Renommer">&#9998;</button>
+        <button data-remove="${escapeHtml(val)}" aria-label="Supprimer">&times;</button>
+      </div>
+    </div>`;
+  }).join('');
+  listEl.querySelectorAll('[data-rename]').forEach(btn=>{
+    btn.addEventListener('click', ()=> renameFieldValue(itemField, btn.dataset.rename));
+  });
+  listEl.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click', ()=> removeFieldValue(itemField, btn.dataset.remove));
+  });
+}
+
 function renderAdminLists(){
-  adminLocationList.innerHTML = locations.map(loc=>{
-    const count = items.filter(it=>it.location===loc).length;
-    return `<div class="admin-list-item"><span>${escapeHtml(loc)}${count ? ` (${count})` : ''}</span><button data-remove-location="${escapeHtml(loc)}" aria-label="Supprimer">&times;</button></div>`;
-  }).join('');
-  adminLocationList.querySelectorAll('[data-remove-location]').forEach(btn=>{
-    btn.addEventListener('click', ()=> removeLocation(btn.dataset.removeLocation));
-  });
-
-  adminCategoryList.innerHTML = categories.map(cat=>{
-    const count = items.filter(it=>it.category===cat).length;
-    return `<div class="admin-list-item"><span>${escapeHtml(cat)}${count ? ` (${count})` : ''}</span><button data-remove-category="${escapeHtml(cat)}" aria-label="Supprimer">&times;</button></div>`;
-  }).join('');
-  adminCategoryList.querySelectorAll('[data-remove-category]').forEach(btn=>{
-    btn.addEventListener('click', ()=> removeCategory(btn.dataset.removeCategory));
-  });
+  renderAdminField(adminLocationList, 'location');
+  renderAdminField(adminCategoryList, 'category');
+  renderAdminField(adminSubLocationList, 'subLocation');
 }
 
-async function removeLocation(loc){
-  const count = items.filter(it=>it.location===loc).length;
+async function removeFieldValue(itemField, val){
+  const info = ADMIN_FIELD_INFO[itemField];
+  const name = `${info.article}${info.label}`;
+  const count = items.filter(it=>it[itemField]===val).length;
   const msg = count > 0
-    ? `${count} article(s) utilisent l'emplacement "${loc}". Il ne sera plus proposé dans les filtres et la fiche produit, mais les articles concernés garderont cette valeur. Continuer ?`
-    : `Supprimer l'emplacement "${loc}" ?`;
+    ? `${count} article(s) utilisent ${name} "${val}". Il ne sera plus proposé dans les filtres et la fiche produit, mais les articles concernés garderont cette valeur. Continuer ?`
+    : `Supprimer ${name} "${val}" ?`;
   if(!confirm(msg)) return;
-  await updateDoc(metaRef, {locations: arrayRemove(loc)});
+  await updateDoc(metaRef, {[info.metaKey]: arrayRemove(val)});
 }
 
-async function removeCategory(cat){
-  const count = items.filter(it=>it.category===cat).length;
-  const msg = count > 0
-    ? `${count} article(s) utilisent la catégorie "${cat}". Elle ne sera plus proposée dans les filtres et la fiche produit, mais les articles concernés garderont cette valeur. Continuer ?`
-    : `Supprimer la catégorie "${cat}" ?`;
-  if(!confirm(msg)) return;
-  await updateDoc(metaRef, {categories: arrayRemove(cat)});
+async function renameFieldValue(itemField, oldVal){
+  const info = ADMIN_FIELD_INFO[itemField];
+  const name = `${info.article}${info.label}`;
+  const newVal = prompt(`Nouveau nom pour ${name} "${oldVal}" :`, oldVal);
+  if(newVal === null) return;
+  const trimmed = newVal.trim();
+  if(!trimmed || trimmed === oldVal) return;
+  if(info.listGetter().some(v => v.toLowerCase() === trimmed.toLowerCase() && v !== oldVal)){
+    alert(`"${trimmed}" existe déjà.`);
+    return;
+  }
+  const toUpdate = items.filter(it=>it[itemField]===oldVal);
+  if(toUpdate.length){
+    const batch = writeBatch(db);
+    toUpdate.forEach(it => batch.update(doc(itemsCol, it.id), {[itemField]: trimmed}));
+    await batch.commit();
+  }
+  await updateDoc(metaRef, {[info.metaKey]: arrayRemove(oldVal)});
+  await setDoc(metaRef, {[info.metaKey]: arrayUnion(trimmed)}, {merge:true});
 }
 
 adminUnlockBtn.addEventListener('click', ()=>{
@@ -800,6 +835,16 @@ document.getElementById('adminAddCategoryBtn').addEventListener('click', async (
     await setDoc(metaRef, {categories: arrayUnion(val)}, {merge:true});
   }
   adminNewCategoryInput.value = '';
+});
+
+adminNewSubLocationInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') document.getElementById('adminAddSubLocationBtn').click(); });
+document.getElementById('adminAddSubLocationBtn').addEventListener('click', async ()=>{
+  const val = adminNewSubLocationInput.value.trim();
+  if(!val) return;
+  if(!subLocations.includes(val)){
+    await setDoc(metaRef, {subLocations: arrayUnion(val)}, {merge:true});
+  }
+  adminNewSubLocationInput.value = '';
 });
 
 document.getElementById('adminBtn').addEventListener('click', openAdmin);
