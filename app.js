@@ -11,7 +11,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentSingleTabManager,
-  collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, arrayUnion, arrayRemove,
+  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot,
+  arrayUnion, arrayRemove, query, orderBy, limit, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -31,6 +32,8 @@ const db = initializeFirestore(firebaseApp, {
 
 const itemsCol = collection(db, 'items');
 const metaRef = doc(db, 'meta', 'config');
+const usersCol = collection(db, 'users');
+const activityCol = collection(db, 'activity');
 
 const DEFAULT_LOCATIONS = ["Container 1", "Container 2", "Container 3", "Hangar Humanité", "CD93", "Algeco"];
 const DEFAULT_CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Textile", "Matériel production", "outillage", "consommable", "sport", "structure"];
@@ -56,6 +59,7 @@ let pendingQty = 1;
 let selectedIds = new Set();
 let currentFilteredIds = [];
 let isAdmin = false;
+let sheetOriginalPhotoCount = 0;
 
 const authScreen = document.getElementById('authScreen');
 const appRoot = document.getElementById('appRoot');
@@ -102,6 +106,8 @@ const adminLocationList = document.getElementById('adminLocationList');
 const adminCategoryList = document.getElementById('adminCategoryList');
 const adminNewLocationInput = document.getElementById('adminNewLocationInput');
 const adminNewCategoryInput = document.getElementById('adminNewCategoryInput');
+const adminAccountsList = document.getElementById('adminAccountsList');
+const adminActivityList = document.getElementById('adminActivityList');
 
 function showAuthError(message){
   authError.textContent = message;
@@ -147,10 +153,37 @@ function translateAuthError(code){
   return messages[code] || "Une erreur est survenue. Réessaie.";
 }
 
+async function ensureUserRecord(user){
+  const uRef = doc(usersCol, user.uid);
+  const snap = await getDoc(uRef);
+  if(!snap.exists()){
+    await setDoc(uRef, {email: user.email, createdAt: serverTimestamp()});
+  } else if(snap.data().email !== user.email){
+    await setDoc(uRef, {email: user.email}, {merge:true});
+  }
+}
+
+function logActivity(type, itemName){
+  const user = auth.currentUser;
+  addDoc(activityCol, {
+    type,
+    itemName: itemName || '',
+    userEmail: user ? user.email : 'inconnu',
+    uid: user ? user.uid : null,
+    createdAt: serverTimestamp(),
+  }).catch(()=>{});
+}
+
+function formatDate(ts){
+  if(!ts || !ts.toDate) return '';
+  return ts.toDate().toLocaleString('fr-FR', {day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit'});
+}
+
 onAuthStateChanged(auth, (user)=>{
   if (user){
     authScreen.style.display = 'none';
     appRoot.style.display = 'block';
+    ensureUserRecord(user);
     startListeners();
   } else {
     authScreen.style.display = 'flex';
@@ -498,6 +531,7 @@ function openSheet(id){
   pendingQty = it ? it.qty : 1;
   qtyDisplay.value = pendingQty;
   pendingPhotos = it ? [...getItemPhotos(it)] : [];
+  sheetOriginalPhotoCount = pendingPhotos.length;
   renderPhotoGrid();
   deleteBtn.style.display = it ? 'block' : 'none';
 
@@ -553,6 +587,37 @@ function showAdminManageView(){
   adminLoginView.style.display = 'none';
   adminManageView.style.display = 'block';
   renderAdminLists();
+  loadAdminAccounts();
+  loadAdminActivity();
+}
+
+async function loadAdminAccounts(){
+  adminAccountsList.innerHTML = '<div class="admin-list-item"><span>Chargement…</span></div>';
+  try {
+    const snap = await getDocs(usersCol);
+    const accounts = snap.docs.map(d=>d.data());
+    accounts.sort((a,b)=> (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+    adminAccountsList.innerHTML = accounts.length
+      ? accounts.map(u=>`<div class="admin-list-item"><span>${escapeHtml(u.email || '?')}${u.createdAt ? ` — créé le ${formatDate(u.createdAt)}` : ''}</span></div>`).join('')
+      : '<div class="admin-list-item"><span>Aucun compte enregistré.</span></div>';
+  } catch(e){
+    adminAccountsList.innerHTML = '<div class="admin-list-item"><span>Erreur de chargement.</span></div>';
+  }
+}
+
+async function loadAdminActivity(){
+  adminActivityList.innerHTML = '<div class="admin-list-item"><span>Chargement…</span></div>';
+  const ACTIVITY_LABELS = {create:'Création', edit:'Modification', photo_add:'Ajout photo'};
+  try {
+    const q = query(activityCol, orderBy('createdAt', 'desc'), limit(50));
+    const snap = await getDocs(q);
+    const rows = snap.docs.map(d=>d.data());
+    adminActivityList.innerHTML = rows.length
+      ? rows.map(a=>`<div class="admin-list-item"><span>${formatDate(a.createdAt)} — ${escapeHtml(a.userEmail || '?')} — ${ACTIVITY_LABELS[a.type] || a.type} — ${escapeHtml(a.itemName || '')}</span></div>`).join('')
+      : '<div class="admin-list-item"><span>Aucune activité enregistrée.</span></div>';
+  } catch(e){
+    adminActivityList.innerHTML = '<div class="admin-list-item"><span>Erreur de chargement.</span></div>';
+  }
 }
 
 function renderAdminLists(){
@@ -777,8 +842,13 @@ document.getElementById('saveBtn').addEventListener('click', async ()=>{
 
   if(editingId){
     await updateDoc(doc(itemsCol, editingId), data);
+    logActivity('edit', name);
   } else {
     await setDoc(newItemRef, data);
+    logActivity('create', name);
+  }
+  if(pendingPhotos.length > sheetOriginalPhotoCount){
+    logActivity('photo_add', name);
   }
   closeSheet();
 });
