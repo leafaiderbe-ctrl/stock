@@ -278,13 +278,21 @@ main{ padding:16px; }
   letter-spacing:0.03em;
 }
 .card-body{ flex:1; min-width:0; }
+.card-top-row{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:6px;
+}
 .card-name{
   font-weight:500; font-size:15px;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  flex:1 1 auto;
+  min-width:60px;
 }
 .card-loc{
   display:inline-block;
-  margin-top:5px;
+  flex:none;
   font-family:'Poppins', sans-serif;
   font-size:10.5px;
   text-transform:uppercase;
@@ -296,8 +304,7 @@ main{ padding:16px; }
 }
 .card-category{
   display:inline-block;
-  margin-top:5px;
-  margin-left:6px;
+  flex:none;
   font-family:'Poppins', sans-serif;
   font-size:10.5px;
   text-transform:uppercase;
@@ -310,8 +317,7 @@ main{ padding:16px; }
 }
 .card-subloc{
   display:inline-block;
-  margin-top:5px;
-  margin-left:6px;
+  flex:none;
   font-family:'Poppins', sans-serif;
   font-size:10.5px;
   text-transform:uppercase;

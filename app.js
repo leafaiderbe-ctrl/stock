@@ -397,10 +397,12 @@ function renderList(){
       </label>
       <div class="thumb ${getItemPhotos(it).length ? 'has-photo' : ''}" style="${getItemPhotos(it)[0] ? `background-image:url(${getItemPhotos(it)[0]})` : ''}">${getItemPhotos(it)[0] ? '' : '&#128247;'}</div>
       <div class="card-body" data-action="edit">
-        <div class="card-name">${escapeHtml(it.name)}</div>
-        ${it.location ? `<span class="card-loc">${escapeHtml(it.location)}</span>` : ''}
-        ${it.subLocation ? `<span class="card-subloc">${escapeHtml(it.subLocation)}</span>` : ''}
-        ${it.category ? `<span class="card-category">${escapeHtml(it.category)}</span>` : ''}
+        <div class="card-top-row">
+          <span class="card-name">${escapeHtml(it.name)}</span>
+          ${it.location ? `<span class="card-loc">${escapeHtml(it.location)}</span>` : ''}
+          ${it.subLocation ? `<span class="card-subloc">${escapeHtml(it.subLocation)}</span>` : ''}
+          ${it.category ? `<span class="card-category">${escapeHtml(it.category)}</span>` : ''}
+        </div>
         <div class="card-details">
           ${it.dimensions ? `<div class="card-detail"><b>Dimensions</b>${escapeHtml(it.dimensions)}</div>` : ''}
           ${it.condition ? `<div class="card-detail"><b>État</b>${escapeHtml(it.condition)}</div>` : ''}
