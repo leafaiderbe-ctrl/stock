@@ -53,6 +53,7 @@ let unsubMeta = null;
 
 let activeFilter = null;
 let activeCategories = new Set();
+let activeStoredFilter = null;
 let searchTerm = "";
 let editingId = null;
 let newItemRef = null;
@@ -74,6 +75,7 @@ const emptyState = document.getElementById('emptyState');
 const itemCount = document.getElementById('itemCount');
 const locationChips = document.getElementById('locationChips');
 const categoryChips = document.getElementById('categoryChips');
+const storedChips = document.getElementById('storedChips');
 const sheetOverlay = document.getElementById('sheetOverlay');
 const sheetTitle = document.getElementById('sheetTitle');
 const nameInput = document.getElementById('nameInput');
@@ -217,6 +219,7 @@ function startListeners(){
     subLocations = data.subLocations && data.subLocations.length ? data.subLocations : DEFAULT_SUBLOCATIONS;
     renderChips();
     renderCategoryChips();
+    renderStoredChips();
     renderList();
     if(isAdmin && adminOverlay.classList.contains('open')) renderAdminLists();
     if(bulkEditOverlay.classList.contains('open')){
@@ -300,6 +303,26 @@ function renderCategoryChips(){
   });
 }
 
+function renderStoredChips(){
+  const options = [
+    {value:'', label:'Tous'},
+    {value:'true', label:'Rangé'},
+    {value:'false', label:'Non rangé'},
+  ];
+  storedChips.innerHTML = options.map(o=>{
+    const isActive = activeStoredFilter === null ? o.value === '' : String(activeStoredFilter) === o.value;
+    return `<button class="chip ${isActive ? 'active' : ''}" data-stored="${o.value}">${o.label}</button>`;
+  }).join('');
+  storedChips.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const val = chip.dataset.stored;
+      activeStoredFilter = val === '' ? null : (val === 'true');
+      renderStoredChips();
+      renderList();
+    });
+  });
+}
+
 function renderLocationSelect(){
   locationSelect.innerHTML = locations.map(loc=>
     `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`
@@ -332,8 +355,9 @@ function renderList(){
   let filtered = items.filter(it=>{
     const matchLoc = !activeFilter || it.location === activeFilter;
     const matchCategory = activeCategories.size === 0 || activeCategories.has(it.category);
+    const matchStored = activeStoredFilter === null || !!it.stored === activeStoredFilter;
     const matchSearch = !searchTerm || it.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchLoc && matchCategory && matchSearch;
+    return matchLoc && matchCategory && matchStored && matchSearch;
   });
   filtered.sort((a,b)=> a.name.localeCompare(b.name, 'fr', {sensitivity:'base'}));
   currentFilteredIds = filtered.map(it=>it.id);
