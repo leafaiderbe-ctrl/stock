@@ -95,6 +95,16 @@ const conditionSelect = document.getElementById('conditionSelect');
 const notesInput = document.getElementById('notesInput');
 const sheetMetaInfo = document.getElementById('sheetMetaInfo');
 const sheetMetaText = document.getElementById('sheetMetaText');
+const sheetError = document.getElementById('sheetError');
+
+function showSheetError(msg){
+  sheetError.textContent = msg;
+  sheetError.style.display = 'block';
+}
+function clearSheetError(){
+  sheetError.style.display = 'none';
+  sheetError.textContent = '';
+}
 const selectAllBtn = document.getElementById('selectAllBtn');
 const selectionCount = document.getElementById('selectionCount');
 const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
@@ -573,6 +583,7 @@ function openSheet(id){
   newItemRef = editingId ? null : doc(itemsCol);
   const it = id ? items.find(i=>i.id===id) : null;
 
+  clearSheetError();
   sheetTitle.textContent = it ? "Modifier l'article" : "Nouvel article";
   nameInput.value = it ? it.name : "";
   storedCheckbox.checked = it ? !!it.stored : false;
@@ -940,10 +951,11 @@ document.getElementById('addSubLocationBtn').addEventListener('click', async ()=
 });
 
 document.getElementById('saveBtn').addEventListener('click', async ()=>{
+  clearSheetError();
   const name = nameInput.value.trim();
-  if(!name){ nameInput.focus(); return; }
+  if(!name){ nameInput.focus(); showSheetError('Le nom du produit est obligatoire.'); return; }
   const category = categorySelect.value;
-  if(!category){ categorySelect.focus(); return; }
+  if(!category){ categorySelect.focus(); showSheetError('La catégorie est obligatoire.'); return; }
   const location = locationSelect.value || locations[0];
   const subLocation = subLocationSelect.value;
   const unit = unitSelect.value || units[0];
