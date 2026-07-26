@@ -280,6 +280,7 @@ function stopListeners(){
 
 function renderChips(){
   let html = `<button class="chip ${activeFilter===null?'active':''}" data-loc="">Tous</button>`;
+  html += `<button class="chip ${activeFilter==='__BLANK__'?'active':''}" data-loc="__BLANK__">-</button>`;
   locations.forEach(loc=>{
     html += `<button class="chip ${activeFilter===loc?'active':''}" data-loc="${escapeHtml(loc)}">${escapeHtml(loc)}</button>`;
   });
@@ -295,6 +296,7 @@ function renderChips(){
 
 function renderCategoryChips(){
   let html = `<button class="chip ${activeCategories.size===0?'active':''}" data-cat="">Toutes</button>`;
+  html += `<button class="chip ${activeCategories.has('__BLANK__')?'active':''}" data-cat="__BLANK__">-</button>`;
   categories.forEach(cat=>{
     html += `<button class="chip ${activeCategories.has(cat)?'active':''}" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`;
   });
@@ -365,8 +367,8 @@ function renderList(){
   }
 
   let filtered = items.filter(it=>{
-    const matchLoc = !activeFilter || it.location === activeFilter;
-    const matchCategory = activeCategories.size === 0 || activeCategories.has(it.category);
+    const matchLoc = !activeFilter || (activeFilter === '__BLANK__' ? !it.location : it.location === activeFilter);
+    const matchCategory = activeCategories.size === 0 || activeCategories.has(it.category) || (activeCategories.has('__BLANK__') && !it.category);
     const matchStored = activeStoredFilter === null || !!it.stored === activeStoredFilter;
     const matchSearch = !searchTerm || it.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchLoc && matchCategory && matchStored && matchSearch;
