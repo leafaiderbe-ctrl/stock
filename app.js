@@ -39,6 +39,7 @@ const DEFAULT_LOCATIONS = ["ALGECO 0", "CONTAINER 1", "CONTAINER 2", "CONTAINER 
 const DEFAULT_CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Textile", "Matériel production", "outillage", "consommable", "sport", "structure"];
 const CONDITIONS = ["Bon état", "Usagé", "À réparer"];
 const DEFAULT_UNITS = ["Unités", "ML", "M2"];
+const DEFAULT_SUBLOCATIONS = ["MALLE RÉGIE", "CAISSE PLASTIQUE", "PALETTE"];
 const MAX_PHOTOS = 5;
 const ADMIN_PASSWORD = "BelEte2026";
 
@@ -46,6 +47,7 @@ let items = [];
 let units = [];
 let locations = [];
 let categories = [];
+let subLocations = [];
 let unsubItems = null;
 let unsubMeta = null;
 
@@ -78,6 +80,7 @@ const nameInput = document.getElementById('nameInput');
 const qtyDisplay = document.getElementById('qtyDisplay');
 const unitSelect = document.getElementById('unitSelect');
 const locationSelect = document.getElementById('locationSelect');
+const subLocationSelect = document.getElementById('subLocationSelect');
 const categorySelect = document.getElementById('categorySelect');
 const photoInput = document.getElementById('photoInput');
 const photoGrid = document.getElementById('photoGrid');
@@ -211,6 +214,7 @@ function startListeners(){
     units = data.units && data.units.length ? data.units : DEFAULT_UNITS;
     categories = data.categories && data.categories.length ? data.categories : DEFAULT_CATEGORIES;
     locations = data.locations && data.locations.length ? data.locations : DEFAULT_LOCATIONS;
+    subLocations = data.subLocations && data.subLocations.length ? data.subLocations : DEFAULT_SUBLOCATIONS;
     renderChips();
     renderCategoryChips();
     renderList();
@@ -226,12 +230,15 @@ function startListeners(){
       const keepUnit = unitSelect.value;
       const keepCat = categorySelect.value;
       const keepLoc = locationSelect.value;
+      const keepSubLoc = subLocationSelect.value;
       renderUnitSelect();
       renderCategorySelect();
       renderLocationSelect();
+      renderSubLocationSelect();
       unitSelect.value = keepUnit;
       categorySelect.value = keepCat;
       locationSelect.value = keepLoc;
+      subLocationSelect.value = keepSubLoc;
     }
   });
   getDoc(metaRef).then(snap=>{
@@ -240,6 +247,7 @@ function startListeners(){
     if(!data.units || !data.units.length) seed.units = DEFAULT_UNITS;
     if(!data.categories || !data.categories.length) seed.categories = DEFAULT_CATEGORIES;
     if(!data.locations || !data.locations.length) seed.locations = DEFAULT_LOCATIONS;
+    if(!data.subLocations || !data.subLocations.length) seed.subLocations = DEFAULT_SUBLOCATIONS;
     if(Object.keys(seed).length) setDoc(metaRef, seed, {merge:true});
   });
 }
@@ -251,6 +259,7 @@ function stopListeners(){
   units = [];
   categories = [];
   locations = [];
+  subLocations = [];
   isAdmin = false;
 }
 
@@ -293,6 +302,12 @@ function renderCategoryChips(){
 
 function renderLocationSelect(){
   locationSelect.innerHTML = locations.map(loc=>
+    `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`
+  ).join('');
+}
+
+function renderSubLocationSelect(){
+  subLocationSelect.innerHTML = `<option value="">— Aucun —</option>` + subLocations.map(loc=>
     `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`
   ).join('');
 }
@@ -544,6 +559,9 @@ function openSheet(id){
 
   renderLocationSelect();
   if(it) locationSelect.value = it.location;
+
+  renderSubLocationSelect();
+  subLocationSelect.value = it ? (it.subLocation || "") : "";
 
   renderCategorySelect();
   categorySelect.value = it ? (it.category || "") : "";
@@ -842,12 +860,24 @@ document.getElementById('addUnitBtn').addEventListener('click', async ()=>{
   input.value = "";
 });
 
+document.getElementById('addSubLocationBtn').addEventListener('click', async ()=>{
+  const input = document.getElementById('newSubLocationInput');
+  const val = input.value.trim();
+  if(!val) return;
+  if(!subLocations.includes(val)){
+    await setDoc(metaRef, {subLocations: arrayUnion(val)}, {merge:true});
+  }
+  subLocationSelect.value = val;
+  input.value = "";
+});
+
 document.getElementById('saveBtn').addEventListener('click', async ()=>{
   const name = nameInput.value.trim();
   if(!name){ nameInput.focus(); return; }
   const category = categorySelect.value;
   if(!category){ categorySelect.focus(); return; }
   const location = locationSelect.value || locations[0];
+  const subLocation = subLocationSelect.value;
   const unit = unitSelect.value || units[0];
   const dimensions = dimensionsInput.value.trim();
   const condition = conditionSelect.value;
@@ -857,7 +887,7 @@ document.getElementById('saveBtn').addEventListener('click', async ()=>{
   const now = Date.now();
 
   const data = {
-    name, qty:pendingQty, location, category, unit, photos:pendingPhotos,
+    name, qty:pendingQty, location, subLocation, category, unit, photos:pendingPhotos,
     dimensions, condition, notes, stored: storedCheckbox.checked,
     updatedAt: now, updatedBy: userEmail,
   };
