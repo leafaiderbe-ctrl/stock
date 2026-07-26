@@ -35,7 +35,7 @@ const metaRef = doc(db, 'meta', 'config');
 const usersCol = collection(db, 'users');
 const activityCol = collection(db, 'activity');
 
-const DEFAULT_LOCATIONS = ["Container 1", "Container 2", "Container 3", "Hangar Humanité", "CD93", "Algeco"];
+const DEFAULT_LOCATIONS = ["ALGECO 0", "CONTAINER 1", "CONTAINER 2", "CONTAINER 3", "HANGAR HUMA", "CENTRE TECHNIQUE", "CD93", "EVENTEAM BOULOGNE", "A DONNER", "A JETER"];
 const DEFAULT_CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Textile", "Matériel production", "outillage", "consommable", "sport", "structure"];
 const CONDITIONS = ["Bon état", "Usagé", "À réparer"];
 const DEFAULT_UNITS = ["Unités", "ML", "M2"];
