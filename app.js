@@ -63,6 +63,8 @@ let selectedIds = new Set();
 let currentFilteredIds = [];
 let isAdmin = false;
 let sheetOriginalPhotoCount = 0;
+let sheetSnapshot = null;
+let sheetForceClose = false;
 
 const authScreen = document.getElementById('authScreen');
 const appRoot = document.getElementById('appRoot');
@@ -610,10 +612,40 @@ function openSheet(id){
 
   sheetOverlay.classList.add('open');
   history.pushState({modal:'sheet'}, '');
+  sheetSnapshot = captureSheetSnapshot();
+}
+
+function captureSheetSnapshot(){
+  return JSON.stringify({
+    name: nameInput.value,
+    stored: storedCheckbox.checked,
+    qty: pendingQty,
+    unit: unitSelect.value,
+    location: locationSelect.value,
+    subLocation: subLocationSelect.value,
+    category: categorySelect.value,
+    dimensions: dimensionsInput.value,
+    condition: conditionSelect.value,
+    notes: notesInput.value,
+    photos: pendingPhotos,
+  });
+}
+
+function hasUnsavedChanges(){
+  return sheetOverlay.classList.contains('open') && captureSheetSnapshot() !== sheetSnapshot;
 }
 
 function closeSheet(){
-  if(sheetOverlay.classList.contains('open')) history.back();
+  if(!sheetOverlay.classList.contains('open')) return;
+  if(hasUnsavedChanges() && !confirm("Des modifications n'ont pas été enregistrées. Quitter sans enregistrer ?")) return;
+  sheetForceClose = true;
+  history.back();
+}
+
+function forceCloseSheet(){
+  if(!sheetOverlay.classList.contains('open')) return;
+  sheetForceClose = true;
+  history.back();
 }
 
 function hideSheet(){
@@ -801,7 +833,19 @@ window.addEventListener('popstate', ()=>{
   if(photoViewerOverlay.classList.contains('open')) hidePhotoViewer();
   else if(adminOverlay.classList.contains('open')) hideAdmin();
   else if(bulkEditOverlay.classList.contains('open')) hideBulkEdit();
-  else if(sheetOverlay.classList.contains('open')) hideSheet();
+  else if(sheetOverlay.classList.contains('open')){
+    if(sheetForceClose){
+      sheetForceClose = false;
+      hideSheet();
+    } else if(hasUnsavedChanges()){
+      history.pushState({modal:'sheet'}, '');
+      if(confirm("Des modifications n'ont pas été enregistrées. Quitter sans enregistrer ?")){
+        forceCloseSheet();
+      }
+    } else {
+      hideSheet();
+    }
+  }
 });
 
 document.getElementById('addBtn').addEventListener('click', ()=>openSheet(null));
@@ -932,13 +976,13 @@ document.getElementById('saveBtn').addEventListener('click', async ()=>{
   if(photosChanged){
     logActivity('photo_add', name);
   }
-  closeSheet();
+  forceCloseSheet();
 });
 
 deleteBtn.addEventListener('click', async ()=>{
   if(!editingId) return;
   await deleteDoc(doc(itemsCol, editingId));
-  closeSheet();
+  forceCloseSheet();
 });
 
 document.getElementById('searchInput').addEventListener('input', (e)=>{
