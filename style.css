@@ -308,6 +308,43 @@ main{ padding:16px; }
   padding:1px 6px;
   border-radius:3px;
 }
+.card-subloc{
+  display:inline-block;
+  margin-top:5px;
+  margin-left:6px;
+  font-family:'Poppins', sans-serif;
+  font-size:10.5px;
+  text-transform:uppercase;
+  letter-spacing:0.03em;
+  background:transparent;
+  border:1px dashed var(--sage-dark);
+  color:var(--sage-dark);
+  padding:1px 6px;
+  border-radius:3px;
+}
+.card-details{
+  margin-top:6px;
+}
+.card-detail{
+  font-size:11px;
+  color:var(--ink);
+  opacity:0.7;
+  line-height:1.5;
+}
+.card-detail b{
+  text-transform:uppercase;
+  font-size:9.5px;
+  letter-spacing:0.03em;
+  font-weight:600;
+  opacity:0.8;
+  margin-right:5px;
+}
+.card-notes{
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
 .card-actions{
   display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex:none;
 }
