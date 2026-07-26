@@ -35,10 +35,10 @@ const metaRef = doc(db, 'meta', 'config');
 const usersCol = collection(db, 'users');
 const activityCol = collection(db, 'activity');
 
-const DEFAULT_LOCATIONS = ["ALGECO 0", "CONTAINER 1", "CONTAINER 2", "CONTAINER 3", "HANGAR HUMA", "CENTRE TECHNIQUE", "CD93", "EVENTEAM BOULOGNE", "A DONNER", "A JETER"];
-const DEFAULT_CATEGORIES = ["Mobilier", "Mobilier loges", "Signalétique", "Textile", "Matériel production", "outillage", "consommable", "sport", "structure"];
+const DEFAULT_LOCATIONS = ["ALGECO 0", "CONTAINER 1", "CONTAINER 2", "CONTAINER 3", "HANGAR HUMA", "CENTRE TECHNIQUE", "CD93", "EVENTEAM BOULOGNE", "A DONNER", "A JETER", "PRESTA"];
+const DEFAULT_CATEGORIES = ["MOBILIER", "SIGNALÉTIQUE", "TEXTILE", "MATÉRIEL PRODUCTION", "OUTILLAGE", "CONSOMMABLE", "SPORT", "STRUCTURE"];
 const CONDITIONS = ["Bon état", "Usagé", "À réparer"];
-const DEFAULT_UNITS = ["Unités", "ML", "M2"];
+const DEFAULT_UNITS = ["ML", "rouleaux", "m²", "U"];
 const DEFAULT_SUBLOCATIONS = ["MALLE RÉGIE", "CAISSE PLASTIQUE", "PALETTE"];
 const MAX_PHOTOS = 5;
 const ADMIN_PASSWORD = "BelEte2026";
