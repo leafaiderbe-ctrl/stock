@@ -405,6 +405,10 @@ function renderList(){
       <div class="card-body" data-action="edit">
         <div class="card-top-row">
           <span class="card-name">${escapeHtml(it.name)}</span>
+          <label class="stored-toggle">
+            <input type="checkbox" data-stored-id="${it.id}" ${it.stored ? 'checked' : ''}>
+            <span>Rangé</span>
+          </label>
           ${it.location ? `<span class="card-loc">${escapeHtml(it.location)}</span>` : ''}
           ${it.subLocation ? `<span class="card-subloc">${escapeHtml(it.subLocation)}</span>` : ''}
           ${it.category ? `<span class="card-category">${escapeHtml(it.category)}</span>` : ''}
@@ -414,10 +418,6 @@ function renderList(){
           ${it.condition ? `<div class="card-detail"><b>État</b>${escapeHtml(it.condition)}</div>` : ''}
           ${it.notes ? `<div class="card-detail card-notes"><b>Remarques</b>${escapeHtml(it.notes)}</div>` : ''}
         </div>
-        <label class="stored-toggle">
-          <input type="checkbox" data-stored-id="${it.id}" ${it.stored ? 'checked' : ''}>
-          <span>Rangé</span>
-        </label>
       </div>
       <div class="card-actions">
         <div class="stepper">
