@@ -127,6 +127,8 @@ const adminNewLocationInput = document.getElementById('adminNewLocationInput');
 const adminNewCategoryInput = document.getElementById('adminNewCategoryInput');
 const adminSubLocationList = document.getElementById('adminSubLocationList');
 const adminNewSubLocationInput = document.getElementById('adminNewSubLocationInput');
+const adminUnitList = document.getElementById('adminUnitList');
+const adminNewUnitInput = document.getElementById('adminNewUnitInput');
 const adminAccountsList = document.getElementById('adminAccountsList');
 const adminActivityList = document.getElementById('adminActivityList');
 
@@ -620,7 +622,8 @@ function openSheet(id){
   categorySelect.value = it ? (it.category || "") : "";
 
   renderUnitSelect();
-  unitSelect.value = it ? (it.unit || units[0]) : units[0];
+  const defaultUnit = units.includes('U') ? 'U' : units[0];
+  unitSelect.value = it ? (it.unit || defaultUnit) : defaultUnit;
 
   dimensionsInput.value = it ? (it.dimensions || "") : "";
   conditionSelect.value = it ? (it.condition || "") : "";
@@ -743,6 +746,7 @@ const ADMIN_FIELD_INFO = {
   location: {label: 'emplacement', article: "l'", listGetter: ()=>locations, metaKey: 'locations'},
   category: {label: 'catégorie', article: 'la ', listGetter: ()=>categories, metaKey: 'categories'},
   subLocation: {label: 'sous-emplacement', article: 'le ', listGetter: ()=>subLocations, metaKey: 'subLocations'},
+  unit: {label: 'unité', article: "l'", listGetter: ()=>units, metaKey: 'units'},
 };
 
 function renderAdminField(listEl, itemField){
@@ -770,6 +774,7 @@ function renderAdminLists(){
   renderAdminField(adminLocationList, 'location');
   renderAdminField(adminCategoryList, 'category');
   renderAdminField(adminSubLocationList, 'subLocation');
+  renderAdminField(adminUnitList, 'unit');
 }
 
 async function removeFieldValue(itemField, val){
@@ -845,6 +850,16 @@ document.getElementById('adminAddSubLocationBtn').addEventListener('click', asyn
     await setDoc(metaRef, {subLocations: arrayUnion(val)}, {merge:true});
   }
   adminNewSubLocationInput.value = '';
+});
+
+adminNewUnitInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') document.getElementById('adminAddUnitBtn').click(); });
+document.getElementById('adminAddUnitBtn').addEventListener('click', async ()=>{
+  const val = adminNewUnitInput.value.trim();
+  if(!val) return;
+  if(!units.includes(val)){
+    await setDoc(metaRef, {units: arrayUnion(val)}, {merge:true});
+  }
+  adminNewUnitInput.value = '';
 });
 
 document.getElementById('adminBtn').addEventListener('click', openAdmin);
