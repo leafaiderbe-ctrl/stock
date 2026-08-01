@@ -280,15 +280,16 @@ main{ padding:16px; }
 .card-body{ flex:1; min-width:0; }
 .card-top-row{
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   flex-wrap:wrap;
   gap:6px;
 }
 .card-name{
-  font-weight:500; font-size:15px;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-weight:500; font-size:14px;
+  white-space:normal; word-break:break-word;
   flex:1 1 auto;
   min-width:60px;
+  padding-top:1px;
 }
 .card-loc{
   display:inline-block;
