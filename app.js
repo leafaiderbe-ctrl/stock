@@ -1121,8 +1121,22 @@ document.getElementById('searchInput').addEventListener('input', (e)=>{
 });
 
 const EXPORT_FONT = {name: 'Avenir Next'};
-const EXPORT_MAIN_PHOTO_ROW_HEIGHT = 110;
-const EXPORT_PHOTO_COL_WIDTH = 15;
+const EXPORT_MAIN_PHOTO_ROW_HEIGHT = 135;
+const EXPORT_PHOTO_COL_WIDTH = 26;
+// Target box photos are fit *within* (never stretched to fill) so every
+// photo keeps its real proportions regardless of its own aspect ratio.
+// Wider than strictly necessary for EXPORT_PHOTO_COL_WIDTH on purpose —
+// bigger, clearly visible photos, still never distorted.
+const EXPORT_PHOTO_BOX_PX = 180;
+
+function loadImageNaturalSize(dataUrl){
+  return new Promise((resolve)=>{
+    const img = new Image();
+    img.onload = () => resolve({w: img.naturalWidth || 1, h: img.naturalHeight || 1});
+    img.onerror = () => resolve({w: 1, h: 1});
+    img.src = dataUrl;
+  });
+}
 
 async function exportExcel(){
   const workbook = new ExcelJS.Workbook();
@@ -1149,15 +1163,25 @@ async function exportExcel(){
   headerRow.font = {...EXPORT_FONT, bold:true};
   headerRow.alignment = {wrapText:false, vertical:'middle'};
 
+  // Every distinct photo's natural pixel size, fetched once up front so each
+  // image can be placed at a contained (never-distorted) size below.
+  const allPhotoUrls = new Set();
+  items.forEach(it => getItemPhotos(it).forEach(p => allPhotoUrls.add(p)));
+  const naturalSizes = new Map();
+  await Promise.all([...allPhotoUrls].map(async (url)=>{
+    naturalSizes.set(url, await loadImageNaturalSize(url));
+  }));
+
   const addPhotoToCell = (photo, colIndex, rowNumber)=>{
     const match = /^data:image\/(\w+);base64,(.*)$/.exec(photo);
     if(!match) return;
     const ext = match[1] === 'jpg' ? 'jpeg' : match[1];
     const imageId = workbook.addImage({base64: match[2], extension: ext});
+    const {w, h} = naturalSizes.get(photo) || {w:1, h:1};
+    const scale = Math.min(EXPORT_PHOTO_BOX_PX / w, EXPORT_PHOTO_BOX_PX / h, 1);
     sheet.addImage(imageId, {
       tl: {col:colIndex, row: rowNumber - 1},
-      br: {col:colIndex + 1, row: rowNumber},
-      editAs: 'oneCell',
+      ext: {width: Math.round(w * scale), height: Math.round(h * scale)},
     });
   };
 
