@@ -131,6 +131,7 @@ const adminUnitList = document.getElementById('adminUnitList');
 const adminNewUnitInput = document.getElementById('adminNewUnitInput');
 const adminAccountsList = document.getElementById('adminAccountsList');
 const adminActivityList = document.getElementById('adminActivityList');
+const adminActivityAccountSelect = document.getElementById('adminActivityAccountSelect');
 
 function showAuthError(message){
   authError.textContent = message;
@@ -722,6 +723,12 @@ async function loadAdminAccounts(){
     adminAccountsList.innerHTML = accounts.length
       ? accounts.map(u=>`<div class="admin-list-item"><span>${escapeHtml(u.email || '?')}${u.createdAt ? ` — créé le ${formatDate(u.createdAt)}` : ''}</span></div>`).join('')
       : '<div class="admin-list-item"><span>Aucun compte enregistré.</span></div>';
+
+    const keepSelection = adminActivityAccountSelect.value;
+    const emails = accounts.map(u=>u.email).filter(Boolean).sort((a,b)=> a.localeCompare(b, 'fr', {sensitivity:'base'}));
+    adminActivityAccountSelect.innerHTML = '<option value="">Tous les comptes</option>' +
+      emails.map(email=>`<option value="${escapeHtml(email)}">${escapeHtml(email)}</option>`).join('');
+    adminActivityAccountSelect.value = keepSelection;
   } catch(e){
     adminAccountsList.innerHTML = '<div class="admin-list-item"><span>Erreur de chargement.</span></div>';
   }
@@ -731,16 +738,24 @@ async function loadAdminActivity(){
   adminActivityList.innerHTML = '<div class="admin-list-item"><span>Chargement…</span></div>';
   const ACTIVITY_LABELS = {create:'Création', edit:'Modification', photo_add:'Ajout photo'};
   try {
-    const q = query(activityCol, orderBy('createdAt', 'desc'), limit(50));
+    // Fetch a wide recent window ordered by date only (no composite index
+    // needed), then filter by account client-side so a specific person's
+    // activity isn't missed just because others were more active recently.
+    const q = query(activityCol, orderBy('createdAt', 'desc'), limit(300));
     const snap = await getDocs(q);
-    const rows = snap.docs.map(d=>d.data());
+    let rows = snap.docs.map(d=>d.data());
+    const filterEmail = adminActivityAccountSelect.value;
+    if(filterEmail) rows = rows.filter(a=> a.userEmail === filterEmail);
+    rows = rows.slice(0, 50);
     adminActivityList.innerHTML = rows.length
       ? rows.map(a=>`<div class="admin-list-item"><span>${formatDate(a.createdAt)} — ${escapeHtml(a.userEmail || '?')} — ${ACTIVITY_LABELS[a.type] || a.type} — ${escapeHtml(a.itemName || '')}</span></div>`).join('')
-      : '<div class="admin-list-item"><span>Aucune activité enregistrée.</span></div>';
+      : '<div class="admin-list-item"><span>Aucune activité enregistrée' + (filterEmail ? ' pour ce compte' : '') + '.</span></div>';
   } catch(e){
     adminActivityList.innerHTML = '<div class="admin-list-item"><span>Erreur de chargement.</span></div>';
   }
 }
+
+adminActivityAccountSelect.addEventListener('change', loadAdminActivity);
 
 const ADMIN_FIELD_INFO = {
   location: {label: 'emplacement', article: "l'", listGetter: ()=>locations, metaKey: 'locations'},
