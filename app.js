@@ -1113,10 +1113,21 @@ async function exportExcel(){
     });
   };
 
+  const sortedItems = [...items].sort((a, b)=>{
+    const locA = a.location || '';
+    const locB = b.location || '';
+    if(locA !== locB){
+      if(!locA) return 1;
+      if(!locB) return -1;
+      return locA.localeCompare(locB, 'fr', {sensitivity:'base'});
+    }
+    return (a.name || '').localeCompare(b.name || '', 'fr', {sensitivity:'base'});
+  });
+
   // Add every row first, then add images in a separate pass — interleaving
   // sheet.addImage() calls between sheet.addRow() calls corrupts ExcelJS's
   // internal row count and silently skips a row number each time.
-  const rowsWithPhotos = items.map((it)=>{
+  const rowsWithPhotos = sortedItems.map((it)=>{
     const photos = getItemPhotos(it);
     const rowData = {
       photo: '',
