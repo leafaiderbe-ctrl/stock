@@ -1128,6 +1128,16 @@ const EXPORT_PHOTO_COL_WIDTH = 26;
 // Wider than strictly necessary for EXPORT_PHOTO_COL_WIDTH on purpose —
 // bigger, clearly visible photos, still never distorted.
 const EXPORT_PHOTO_BOX_PX = 180;
+// EMU (English Metric Units) is the unit Excel/OOXML anchors use internally —
+// 9525 EMU per pixel at 96 DPI. Needed to center a photo precisely within its
+// cell: ExcelJS only reads pixel-precise offsets via nativeColOff/nativeRowOff
+// (plain colOff/rowOff on a {col,row} anchor are silently ignored).
+const EMU_PER_PX = 9525;
+// Approximate cell pixel size for the photo column/row, derived from Excel's
+// own width/height-to-pixel formulas (Calibri 11 default): width in
+// "characters" -> px is ~7*width+5, height in points -> px is pt*96/72.
+const EXPORT_PHOTO_CELL_PX_W = 7 * EXPORT_PHOTO_COL_WIDTH + 5;
+const EXPORT_PHOTO_CELL_PX_H = EXPORT_MAIN_PHOTO_ROW_HEIGHT * (96 / 72);
 
 function loadImageNaturalSize(dataUrl){
   return new Promise((resolve)=>{
@@ -1179,9 +1189,18 @@ async function exportExcel(){
     const imageId = workbook.addImage({base64: match[2], extension: ext});
     const {w, h} = naturalSizes.get(photo) || {w:1, h:1};
     const scale = Math.min(EXPORT_PHOTO_BOX_PX / w, EXPORT_PHOTO_BOX_PX / h, 1);
+    const renderW = Math.round(w * scale);
+    const renderH = Math.round(h * scale);
+    // Center the (never-distorted) photo within its cell: whichever dimension
+    // is smaller than the cell gets its leftover space split evenly.
+    const offXpx = Math.max(0, (EXPORT_PHOTO_CELL_PX_W - renderW) / 2);
+    const offYpx = Math.max(0, (EXPORT_PHOTO_CELL_PX_H - renderH) / 2);
     sheet.addImage(imageId, {
-      tl: {col:colIndex, row: rowNumber - 1},
-      ext: {width: Math.round(w * scale), height: Math.round(h * scale)},
+      tl: {
+        nativeCol: colIndex, nativeColOff: Math.round(offXpx * EMU_PER_PX),
+        nativeRow: rowNumber - 1, nativeRowOff: Math.round(offYpx * EMU_PER_PX),
+      },
+      ext: {width: renderW, height: renderH},
     });
   };
 
