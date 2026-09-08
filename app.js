@@ -1122,7 +1122,7 @@ document.getElementById('searchInput').addEventListener('input', (e)=>{
 
 const EXPORT_FONT = {name: 'Avenir Next'};
 const EXPORT_MAIN_PHOTO_ROW_HEIGHT = 110;
-const EXPORT_PHOTO_COL_WIDTH = 18;
+const EXPORT_PHOTO_COL_WIDTH = 15;
 
 async function exportExcel(){
   const workbook = new ExcelJS.Workbook();
