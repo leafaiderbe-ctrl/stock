@@ -54,6 +54,7 @@ let unsubMeta = null;
 let activeFilter = null;
 let activeCategories = new Set();
 let activeStoredFilter = null;
+let activeCreators = new Set();
 let searchTerm = "";
 let editingId = null;
 let newItemRef = null;
@@ -78,6 +79,7 @@ const itemCount = document.getElementById('itemCount');
 const locationChips = document.getElementById('locationChips');
 const categoryChips = document.getElementById('categoryChips');
 const storedChips = document.getElementById('storedChips');
+const creatorChips = document.getElementById('creatorChips');
 const sheetOverlay = document.getElementById('sheetOverlay');
 const sheetTitle = document.getElementById('sheetTitle');
 const nameInput = document.getElementById('nameInput');
@@ -225,6 +227,7 @@ function startListeners(){
   unsubItems = onSnapshot(itemsCol, (snapshot)=>{
     items = snapshot.docs.map((d)=>({id: d.id, ...d.data()}));
     renderChips();
+    renderCreatorChips();
     renderList();
     if(isAdmin && adminOverlay.classList.contains('open')) renderAdminLists();
   });
@@ -280,6 +283,7 @@ function stopListeners(){
   categories = [];
   locations = [];
   subLocations = [];
+  activeCreators = new Set();
   isAdmin = false;
 }
 
@@ -346,6 +350,34 @@ function sortAlpha(arr){
   return [...arr].sort((a,b)=> a.localeCompare(b, 'fr', {sensitivity:'base'}));
 }
 
+function renderCreatorChips(){
+  const creators = sortAlpha([...new Set(items.map(it=>it.createdBy).filter(Boolean))]);
+  const hasBlank = items.some(it=>!it.createdBy);
+
+  let html = `<button class="chip ${activeCreators.size===0?'active':''}" data-creator="">Tous</button>`;
+  if(hasBlank){
+    html += `<button class="chip ${activeCreators.has('__BLANK__')?'active':''}" data-creator="__BLANK__">-</button>`;
+  }
+  creators.forEach(email=>{
+    html += `<button class="chip ${activeCreators.has(email)?'active':''}" data-creator="${escapeHtml(email)}">${escapeHtml(email.split('@')[0])}</button>`;
+  });
+  creatorChips.innerHTML = html;
+  creatorChips.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const val = chip.dataset.creator;
+      if(!val){
+        activeCreators.clear();
+      } else if(activeCreators.has(val)){
+        activeCreators.delete(val);
+      } else {
+        activeCreators.add(val);
+      }
+      renderCreatorChips();
+      renderList();
+    });
+  });
+}
+
 function renderLocationSelect(){
   locationSelect.innerHTML = `<option value="">-</option>` + sortAlpha(locations).map(loc=>
     `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`
@@ -379,8 +411,9 @@ function renderList(){
     const matchLoc = !activeFilter || (activeFilter === '__BLANK__' ? !it.location : it.location === activeFilter);
     const matchCategory = activeCategories.size === 0 || activeCategories.has(it.category) || (activeCategories.has('__BLANK__') && !it.category);
     const matchStored = activeStoredFilter === null || !!it.stored === activeStoredFilter;
+    const matchCreator = activeCreators.size === 0 || activeCreators.has(it.createdBy) || (activeCreators.has('__BLANK__') && !it.createdBy);
     const matchSearch = !searchTerm || it.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchLoc && matchCategory && matchStored && matchSearch;
+    return matchLoc && matchCategory && matchStored && matchCreator && matchSearch;
   });
   filtered.sort((a,b)=> a.name.localeCompare(b.name, 'fr', {sensitivity:'base'}));
   currentFilteredIds = filtered.map(it=>it.id);

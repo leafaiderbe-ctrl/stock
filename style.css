@@ -117,6 +117,12 @@ header .count{
   border-color:var(--sage);
   color:var(--navy-2);
 }
+.chips-creator{ margin-top:8px; }
+.chips-creator .chip.active{
+  background:var(--rust);
+  border-color:var(--rust);
+  color:var(--paper);
+}
 
 main{ padding:16px; }
 
