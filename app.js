@@ -1072,12 +1072,16 @@ document.getElementById('searchInput').addEventListener('input', (e)=>{
   renderList();
 });
 
+const EXPORT_FONT = {name: 'Avenir Next'};
+const EXPORT_MAIN_PHOTO_ROW_HEIGHT = 110;
+const EXPORT_PHOTO_COL_WIDTH = 18;
+
 async function exportExcel(){
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Inventaire');
 
-  sheet.columns = [
-    {header:'Photo', key:'photo', width:10},
+  const baseColumns = [
+    {header:'Photo', key:'photo', width:EXPORT_PHOTO_COL_WIDTH},
     {header:'Nom du produit', key:'name', width:28},
     {header:'Quantité', key:'qty', width:12},
     {header:'Unité', key:'unit', width:12},
@@ -1087,10 +1091,34 @@ async function exportExcel(){
     {header:'État général', key:'condition', width:16},
     {header:'Remarques', key:'notes', width:36},
   ];
-  sheet.getRow(1).font = {bold:true};
+  const maxExtraPhotos = items.reduce((max, it)=> Math.max(max, getItemPhotos(it).length - 1), 0);
+  const extraPhotoColumns = Array.from({length: Math.max(0, maxExtraPhotos)}, (_, i)=>
+    ({header:`Photo ${i + 2}`, key:`photo${i + 2}`, width:EXPORT_PHOTO_COL_WIDTH})
+  );
+  sheet.columns = [...baseColumns, ...extraPhotoColumns];
 
-  items.forEach((it)=>{
-    const row = sheet.addRow({
+  const headerRow = sheet.getRow(1);
+  headerRow.font = {...EXPORT_FONT, bold:true};
+  headerRow.alignment = {wrapText:false, vertical:'middle'};
+
+  const addPhotoToCell = (photo, colIndex, rowNumber)=>{
+    const match = /^data:image\/(\w+);base64,(.*)$/.exec(photo);
+    if(!match) return;
+    const ext = match[1] === 'jpg' ? 'jpeg' : match[1];
+    const imageId = workbook.addImage({base64: match[2], extension: ext});
+    sheet.addImage(imageId, {
+      tl: {col:colIndex, row: rowNumber - 1},
+      br: {col:colIndex + 1, row: rowNumber},
+      editAs: 'oneCell',
+    });
+  };
+
+  // Add every row first, then add images in a separate pass — interleaving
+  // sheet.addImage() calls between sheet.addRow() calls corrupts ExcelJS's
+  // internal row count and silently skips a row number each time.
+  const rowsWithPhotos = items.map((it)=>{
+    const photos = getItemPhotos(it);
+    const rowData = {
       photo: '',
       name: it.name,
       qty: it.qty,
@@ -1099,24 +1127,21 @@ async function exportExcel(){
       category: it.category || '',
       dimensions: it.dimensions || '',
       condition: it.condition || '',
-      notes: it.notes || '',
-    });
-    row.height = 48;
-    row.alignment = {wrapText: true, vertical: 'middle'};
+      notes: (it.notes || '').replace(/\r?\n/g, ' '),
+    };
+    photos.slice(1).forEach((_, i)=>{ rowData[`photo${i + 2}`] = ''; });
 
-    const photo = getItemPhotos(it)[0];
-    if(photo){
-      const match = /^data:image\/(\w+);base64,(.*)$/.exec(photo);
-      if(match){
-        const ext = match[1] === 'jpg' ? 'jpeg' : match[1];
-        const imageId = workbook.addImage({base64: match[2], extension: ext});
-        sheet.addImage(imageId, {
-          tl: {col:0, row: row.number - 1},
-          br: {col:1, row: row.number},
-          editAs: 'oneCell',
-        });
-      }
-    }
+    const row = sheet.addRow(rowData);
+    row.height = EXPORT_MAIN_PHOTO_ROW_HEIGHT;
+    row.font = EXPORT_FONT;
+    row.alignment = {wrapText:false, vertical:'middle'};
+
+    return {rowNumber: row.number, photos};
+  });
+
+  rowsWithPhotos.forEach(({rowNumber, photos})=>{
+    if(photos[0]) addPhotoToCell(photos[0], 0, rowNumber);
+    photos.slice(1).forEach((photo, i)=> addPhotoToCell(photo, baseColumns.length + i, rowNumber));
   });
 
   const buffer = await workbook.xlsx.writeBuffer();
