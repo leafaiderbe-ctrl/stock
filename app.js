@@ -1308,7 +1308,9 @@ async function importExcel(file){
 
     validItems.push({
       name, qty, unit, location, category, dimensions, condition, notes,
-      photos: [], updatedAt: Date.now(),
+      photos: [], stored: false,
+      createdAt: Date.now(), createdBy: 'IMPORT',
+      updatedAt: Date.now(), updatedBy: 'IMPORT',
     });
   }
 
